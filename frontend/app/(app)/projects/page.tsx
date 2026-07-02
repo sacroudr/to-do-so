@@ -25,7 +25,7 @@ export default async function ProjectsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Projets</h1>
         <NewProjectButton />
@@ -36,7 +36,7 @@ export default async function ProjectsPage() {
           Aucun projet pour le moment. Creez-en un avec « Nouveau projet ».
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <li key={project.id}>
               <Link

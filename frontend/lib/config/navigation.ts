@@ -26,6 +26,7 @@ export interface NavSection {
 
 /** Sections actives en phase 1 (MVP). */
 export const PRIMARY_NAV: NavSection = {
+  title: "Espace de travail",
   items: [
     { label: "Tableau de bord", href: "/dashboard", icon: "layout-dashboard", enabled: true },
     { label: "Vue Kanban", href: "/kanban", icon: "columns", enabled: true },

@@ -1,10 +1,10 @@
 import Link from "next/link";
 
+import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getBoardData } from "@/lib/api/board";
 import { TASK_STATUSES } from "@/lib/constants/task";
-import { formatDue } from "@/lib/tasks/due";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -38,9 +38,7 @@ function TaskLine({ task }: { task: Task }) {
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {formatDue(task.dueDate)}
-        </span>
+        <DueDate due={task.dueDate} statut={task.statut} className="text-xs tabular-nums" />
         <PriorityBadge priority={task.priorite} />
       </div>
     </li>

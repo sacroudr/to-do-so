@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Modal } from "@/components/ui/modal";
 import { createProjectAction } from "@/lib/api/project-actions";
 
 /**
@@ -60,18 +61,11 @@ export function ProjectFormDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Nouveau projet"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="my-8 w-full max-w-md rounded-xl border border-border bg-surface shadow-lg">
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-lg font-semibold tracking-tight">Nouveau projet</h2>
+    <Modal open={open} onClose={onClose} labelledBy="project-dialog-title" className="max-w-md">
+      <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 id="project-dialog-title" className="text-lg font-semibold tracking-tight">
+            Nouveau projet
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -129,7 +123,6 @@ export function ProjectFormDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

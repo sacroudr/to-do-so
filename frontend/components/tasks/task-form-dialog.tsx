@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Modal } from "@/components/ui/modal";
 import {
   createTaskAction,
   updateTaskAction,
@@ -134,18 +135,9 @@ export function TaskFormDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label={mode === "create" ? "Nouvelle tache" : "Modifier la tache"}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="my-8 w-full max-w-lg rounded-xl border border-border bg-surface shadow-lg">
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-lg font-semibold tracking-tight">
+    <Modal open={open} onClose={onClose} labelledBy="task-dialog-title" className="max-w-lg">
+      <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 id="task-dialog-title" className="text-lg font-semibold tracking-tight">
             {mode === "create" ? "Nouvelle tache" : "Modifier la tache"}
           </h2>
           <button
@@ -267,6 +259,7 @@ export function TaskFormDialog({
                   name="dueKind"
                   checked={form.dueKind === "date"}
                   onChange={() => update("dueKind", "date")}
+                  className="accent-primary"
                 />
                 Date precise
               </label>
@@ -276,6 +269,7 @@ export function TaskFormDialog({
                   name="dueKind"
                   checked={form.dueKind === "text"}
                   onChange={() => update("dueKind", "text")}
+                  className="accent-primary"
                 />
                 Texte libre
               </label>
@@ -312,6 +306,7 @@ export function TaskFormDialog({
                       type="checkbox"
                       checked={form.assigneeIds.includes(p.id)}
                       onChange={() => toggleAssignee(p.id)}
+                      className="accent-primary"
                     />
                     {p.nom}
                   </label>
@@ -339,7 +334,6 @@ export function TaskFormDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

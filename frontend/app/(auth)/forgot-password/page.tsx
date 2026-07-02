@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -8,8 +9,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 /**
  * Recuperation de mot de passe oublie (requirements.md §4.1).
  *
- * Delegue a Supabase Auth (resetPasswordForEmail). Squelette fonctionnel.
+ * Delegue a Supabase Auth (resetPasswordForEmail). Meme direction visuelle que l'ecran
+ * de connexion (champ a icone, bouton primaire, etats de chargement / succes styles).
  */
+const FIELD_CLASS =
+  "w-full rounded-lg border border-border bg-background py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -29,11 +34,22 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <div className="space-y-4 text-center">
-        <p className="text-sm">
-          Si un compte existe pour <span className="font-medium">{email}</span>, un email
-          de reinitialisation vient d&apos;etre envoye.
-        </p>
-        <Link href="/login" className="text-sm text-status-progress hover:underline">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-status-done/10 text-status-done">
+          <CheckCircle2 className="size-6" aria-hidden />
+        </span>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">Verifiez votre boite mail</h2>
+          <p className="text-sm text-muted-foreground">
+            Si un compte existe pour{" "}
+            <span className="font-medium text-foreground">{email}</span>, un lien de
+            reinitialisation vient d&apos;etre envoye.
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
           Retour a la connexion
         </Link>
       </div>
@@ -41,32 +57,57 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1">
+        <h2 className="text-lg font-semibold tracking-tight">Mot de passe oublie</h2>
+        <p className="text-sm text-muted-foreground">
+          Entrez votre email pour recevoir un lien de reinitialisation.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           Email
         </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-status-progress"
-        />
+        <div className="relative">
+          <Mail
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={`${FIELD_CLASS} pl-9 pr-3`}
+          />
+        </div>
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-status-progress px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
       >
-        {loading ? "Envoi..." : "Envoyer le lien de reinitialisation"}
+        {loading ? (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Envoi...
+          </>
+        ) : (
+          "Envoyer le lien de reinitialisation"
+        )}
       </button>
 
-      <p className="text-center text-sm text-foreground/60">
-        <Link href="/login" className="hover:underline">
+      <p className="text-center">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
           Retour a la connexion
         </Link>
       </p>

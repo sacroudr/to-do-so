@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -13,10 +14,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  * de passe ne transite ni n'est stocke par notre code : signInWithPassword gere le
  * hachage et l'emission du JWT cote Supabase (§8 Securite). Il n'y a PAS d'inscription
  * libre — les comptes sont crees en amont pour l'equipe (§4.1).
- *
- * Ceci est un squelette fonctionnel : la gestion fine des erreurs / etats de
- * chargement pourra etre enrichie lors de l'implementation.
  */
+const FIELD_CLASS =
+  "w-full rounded-lg border border-border bg-background py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,6 +25,7 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,52 +50,95 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1">
+        <h2 className="text-lg font-semibold tracking-tight">Connexion</h2>
+        <p className="text-sm text-muted-foreground">Accedez a votre espace de suivi.</p>
+      </div>
+
+      <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           Email
         </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-status-progress"
-        />
+        <div className="relative">
+          <Mail
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={`${FIELD_CLASS} pl-9 pr-3`}
+          />
+        </div>
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          Mot de passe
-        </label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-status-progress"
-        />
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className="text-sm font-medium">
+            Mot de passe
+          </label>
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Mot de passe oublie ?
+          </Link>
+        </div>
+        <div className="relative">
+          <Lock
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={`${FIELD_CLASS} pl-9 pr-10`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        </div>
       </div>
 
-      {error ? <p className="text-sm text-status-blocked">{error}</p> : null}
+      {error ? (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+        >
+          <AlertCircle className="size-4 shrink-0" aria-hidden />
+          {error}
+        </div>
+      ) : null}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-status-progress px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
       >
-        {loading ? "Connexion..." : "Se connecter"}
+        {loading ? (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+            Connexion...
+          </>
+        ) : (
+          "Se connecter"
+        )}
       </button>
-
-      <p className="text-center text-sm text-foreground/60">
-        <Link href="/forgot-password" className="hover:underline">
-          Mot de passe oublie ?
-        </Link>
-      </p>
     </form>
   );
 }

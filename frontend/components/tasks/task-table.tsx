@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { ActionError } from "@/components/ui/action-error";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
 import { TASK_STATUSES } from "@/lib/constants/task";
-import { formatDue, getDueKind } from "@/lib/tasks/due";
+import { getDueKind } from "@/lib/tasks/due";
 import { sortTasks, type SortDirection, type TaskSortKey } from "@/lib/tasks/sort";
 import type { Profile, Project, Task, TaskStatus } from "@/lib/types/domain";
 
@@ -54,7 +57,9 @@ export function TaskTable({
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
   const [sort, setSort] = useState<SortState | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [, startTransition] = useTransition();
+  const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   // Resynchronise sur les donnees serveur (pattern « ajustement au rendu », sans effet).
   const [syncedProp, setSyncedProp] = useState<Task[]>(tasksProp);
@@ -92,26 +97,38 @@ export function TaskTable({
   }
 
   function changeStatus(taskId: string, statut: TaskStatus): void {
+    setActionError(null);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, statut } : t)));
     startTransition(async () => {
       const result = await updateTaskStatusAction(taskId, statut);
       if (result.ok) router.refresh();
-      else setTasks(tasksProp);
+      else {
+        setTasks(tasksProp);
+        setActionError(result.error ?? "Le changement de statut a echoue.");
+      }
     });
   }
 
-  function handleDelete(task: Task): void {
-    if (!window.confirm(`Supprimer la tache « ${task.titre} » ?`)) return;
+  function confirmDelete(): void {
+    const task = pendingDelete;
+    if (!task) return;
+    setPendingDelete(null);
+    setActionError(null);
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
     startTransition(async () => {
       const result = await deleteTaskAction(task.id);
       if (result.ok) router.refresh();
-      else setTasks(tasksProp);
+      else {
+        setTasks(tasksProp);
+        setActionError(result.error ?? "La suppression de la tache a echoue.");
+      }
     });
   }
 
   return (
     <>
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
+
       <div className="overflow-x-auto rounded-xl border border-border bg-surface">
         <table data-testid="task-table" className="w-full text-left text-sm">
           <thead className="border-b border-border bg-surface-muted text-muted-foreground">
@@ -170,8 +187,12 @@ export function TaskTable({
                   <td className="px-4 py-3 text-foreground/80">
                     {task.assignees.map((a) => a.nom).join(", ") || "Non assigne"}
                   </td>
-                  <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                    {formatDue(task.dueDate)}
+                  <td className="px-4 py-3">
+                    <DueDate
+                      due={task.dueDate}
+                      statut={task.statut}
+                      className="text-sm tabular-nums"
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <PriorityBadge priority={task.priorite} />
@@ -184,7 +205,7 @@ export function TaskTable({
                         aria-label="Changer le statut"
                         value={task.statut}
                         onChange={(e) => changeStatus(task.id, e.target.value as TaskStatus)}
-                        className="rounded-md border border-border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
+                        className="cursor-pointer rounded-md border border-border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
                       >
                         {TASK_STATUSES.map((s) => (
                           <option key={s.value} value={s.value}>
@@ -206,7 +227,7 @@ export function TaskTable({
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(task)}
+                        onClick={() => setPendingDelete(task)}
                         aria-label="Supprimer la tache"
                         className="rounded-md p-1 text-muted-foreground hover:bg-status-blocked/10 hover:text-status-blocked"
                       >
@@ -228,6 +249,20 @@ export function TaskTable({
         projects={projects}
         profiles={profiles}
         onClose={() => setEditingTask(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Supprimer la tache"
+        message={
+          pendingDelete
+            ? `La tache « ${pendingDelete.titre} » sera definitivement supprimee.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+        pending={pending}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </>
   );

@@ -1,9 +1,9 @@
 import { Pencil, Trash2 } from "lucide-react";
 import type { DragEvent } from "react";
 
+import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { PRIORITY_BY_VALUE } from "@/lib/constants/task";
-import { formatDue } from "@/lib/tasks/due";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -49,7 +49,7 @@ export function TaskCard({
         >
           {task.titre}
         </h3>
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {onEdit ? (
             <button
               type="button"
@@ -82,9 +82,12 @@ export function TaskCard({
       </p>
 
       <div className="mt-3 flex items-center justify-between">
-        <span data-testid="task-card-due" className="text-xs text-muted-foreground">
-          {formatDue(task.dueDate)}
-        </span>
+        <DueDate
+          due={task.dueDate}
+          statut={task.statut}
+          testId="task-card-due"
+          className="text-xs"
+        />
         <span data-testid="task-card-priority">
           <PriorityBadge priority={task.priorite} />
         </span>

@@ -5,6 +5,8 @@ import { useState, useTransition, type DragEvent } from "react";
 
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { ActionError } from "@/components/ui/action-error";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
 import { TASK_STATUSES } from "@/lib/constants/task";
 import type { Profile, Project, Task, TaskStatus } from "@/lib/types/domain";
@@ -32,7 +34,9 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [, startTransition] = useTransition();
+  const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   // Resynchronise sur les donnees serveur (apres revalidation / navigation) via le
   // pattern « ajustement d'etat au rendu » : quand la reference des taches serveur
@@ -60,6 +64,7 @@ export function KanbanBoard({
     if (!current || current.statut === status) return;
 
     // Mise a jour optimiste.
+    setActionError(null);
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, statut: status } : t)),
     );
@@ -70,12 +75,16 @@ export function KanbanBoard({
         router.refresh();
       } else {
         setTasks(tasksProp); // revert vers l'etat serveur
+        setActionError(result.error ?? "Le changement de statut a echoue.");
       }
     });
   }
 
-  function handleDelete(task: Task): void {
-    if (!window.confirm(`Supprimer la tache « ${task.titre} » ?`)) return;
+  function confirmDelete(): void {
+    const task = pendingDelete;
+    if (!task) return;
+    setPendingDelete(null);
+    setActionError(null);
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
     startTransition(async () => {
       const result = await deleteTaskAction(task.id);
@@ -83,13 +92,16 @@ export function KanbanBoard({
         router.refresh();
       } else {
         setTasks(tasksProp);
+        setActionError(result.error ?? "La suppression de la tache a echoue.");
       }
     });
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {TASK_STATUSES.map((status) => {
           const columnTasks = tasks.filter((t) => t.statut === status.value);
           const isOver = overStatus === status.value;
@@ -129,7 +141,7 @@ export function KanbanBoard({
                       draggable
                       onDragStart={handleDragStart}
                       onEdit={setEditingTask}
-                      onDelete={handleDelete}
+                      onDelete={setPendingDelete}
                     />
                   ))
                 )}
@@ -146,6 +158,20 @@ export function KanbanBoard({
         projects={projects}
         profiles={profiles}
         onClose={() => setEditingTask(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Supprimer la tache"
+        message={
+          pendingDelete
+            ? `La tache « ${pendingDelete.titre} » sera definitivement supprimee.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+        pending={pending}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </>
   );
