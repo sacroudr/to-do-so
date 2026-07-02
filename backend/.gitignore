@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# Secrets / env (ne jamais committer)
+.env
+.env.*
+!.env.example
+
+# Caches d'outils
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

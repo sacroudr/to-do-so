@@ -1,0 +1,31 @@
+# =====================================================================
+# Hooks pre-commit — barriere anti-fuite de secrets avant chaque commit.
+# Mis en place suite a l'audit de securite (V1 : cle service_role + JWT
+# secret reels trouves dans backend/.env.example).
+#
+# Activation (UNE fois par machine, venv backend actif) :
+#   pip install pre-commit        # ou : brew install pre-commit
+#   pre-commit install            # installe le hook dans .git/hooks
+#
+# Scanner tout le depot immediatement (recommande apres activation) :
+#   pre-commit run --all-files
+#
+# Mettre a jour les versions des hooks :
+#   pre-commit autoupdate
+# =====================================================================
+
+repos:
+  # gitleaks : detecte cles, JWT, tokens et secrets generiques dans le diff indexe.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # Complements legers et sans configuration.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key        # blocs de cle privee (PEM / SSH)
+      - id: check-added-large-files   # evite d'ajouter par erreur de gros blobs
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict      # marqueurs de conflit oublies

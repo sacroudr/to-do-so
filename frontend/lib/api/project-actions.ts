@@ -1,0 +1,46 @@
+"use server";
+
+/**
+ * Server Action de creation de projet (requirements.md §5).
+ *
+ * Meme pattern que `lib/api/actions.ts` (taches) : execution serveur, JWT via
+ * getAccessToken, appel API FastAPI, puis revalidation des vues concernees. Les
+ * projets alimentent le filtre projet (§4.6) et le selecteur du formulaire de tache,
+ * d'ou la revalidation des vues Kanban / Liste en plus de la page Projets.
+ */
+import { revalidatePath } from "next/cache";
+
+import { apiFetch } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/supabase/server";
+
+export interface ProjectFormValues {
+  nom: string;
+  description: string | null;
+}
+
+export interface ActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+const AFFECTED_PATHS = ["/projects", "/kanban", "/list", "/dashboard"] as const;
+
+export async function createProjectAction(
+  values: ProjectFormValues,
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getAccessToken();
+    await apiFetch("/api/v1/projects", {
+      method: "POST",
+      accessToken,
+      body: {
+        nom: values.nom,
+        description: values.description || null,
+      },
+    });
+    for (const path of AFFECTED_PATHS) revalidatePath(path);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "La creation du projet a echoue." };
+  }
+}

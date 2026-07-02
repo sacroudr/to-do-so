@@ -1,0 +1,38 @@
+# Orchestration locale (developpement / self-hosting).
+#
+# La base de donnees et l'authentification sont fournies par Supabase (service
+# manage) : il n'y a donc PAS de conteneur PostgreSQL ici. Ce compose lance l'API
+# FastAPI et, optionnellement, le frontend Next.js.
+#
+# Les secrets sont injectes depuis les fichiers .env respectifs (jamais commit).
+
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Frontend optionnel en local (cible principale : Vercel, §6.1).
+  # Les variables NEXT_PUBLIC_* sont necessaires au BUILD (inlinees dans le bundle).
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    env_file:
+      - ./frontend/.env.local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

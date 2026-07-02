@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/*
+ * Palette de l'application (requirements.md §7) — direction « epuree, sobre,
+ * professionnelle » (validee Phase 1).
+ * Tailwind v4 se configure ICI, via @theme, et non dans un tailwind.config.js.
+ * Chaque token `--color-*` genere automatiquement les utilitaires
+ * (bg-*, text-*, border-*, border-l-*...), avec support des modificateurs
+ * d'opacite (ex. bg-status-todo/15).
+ *
+ * Hierarchie par SURFACE : background -> surface -> surface-muted.
+ * Marque / action primaire = bleu (--primary), distinct du cyan « en cours »
+ * (--color-status-progress) qui reste reserve au STATUT (a11y : statut = couleur
+ * + libelle, jamais couleur seule).
+ */
+
+:root {
+  --background: #f8fafc; /* slate-50  */
+  --foreground: #0f172a; /* slate-900 */
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9; /* slate-100 — en-tetes de table, zebrage */
+  --muted-foreground: #64748b; /* slate-500 — texte secondaire */
+  --border: #e2e8f0; /* slate-200 */
+
+  --primary: #2563eb; /* blue-600 — marque / navigation active */
+  --primary-hover: #1d4ed8; /* blue-700 */
+  --on-primary: #ffffff;
+  --ring: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1120;
+    --foreground: #e2e8f0;
+    --surface: #111827;
+    --surface-muted: #0f172a;
+    --muted-foreground: #94a3b8; /* slate-400 */
+    --border: #1f2937;
+
+    --primary: #3b82f6; /* blue-500 — plus lumineux sur fond sombre */
+    --primary-hover: #60a5fa;
+    --on-primary: #0b1120;
+    --ring: #3b82f6;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Une couleur distinctive par statut de tache (§4.2 / §7). */
+  --color-status-todo: #6366f1; /* A faire   — indigo   */
+  --color-status-progress: #0ea5e9; /* En cours  — cyan     */
+  --color-status-waiting: #f59e0b; /* En attente — ambre    */
+  --color-status-blocked: #ef4444; /* Bloque    — rouge    */
+  --color-status-done: #10b981; /* Termine   — emeraude */
+
+  /* Accent visuel selon la priorite (§7). */
+  --color-priority-low: #94a3b8;
+  --color-priority-medium: #f59e0b;
+  --color-priority-high: #ef4444;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Accessibilite : anneau de focus visible et coherent (§1 a11y). */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

@@ -1,0 +1,345 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+
+import {
+  createTaskAction,
+  updateTaskAction,
+  type TaskFormValues,
+} from "@/lib/api/actions";
+import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants/task";
+import { getDueKind } from "@/lib/tasks/due";
+import type { Profile, Project, Task, TaskPriority, TaskStatus } from "@/lib/types/domain";
+
+/**
+ * Formulaire de creation / edition d'une tache (requirements.md §4.2).
+ *
+ * Couvre TOUS les champs : titre, description, projet, responsables MULTIPLES,
+ * echeance via un toggle explicite « date precise » / « texte libre » (decision 1),
+ * statut, priorite, source. Soumission via Server Action (create/update).
+ */
+export interface TaskFormDialogProps {
+  open: boolean;
+  mode: "create" | "edit";
+  task?: Task | null;
+  projects: Project[];
+  profiles: Profile[];
+  onClose: () => void;
+}
+
+interface FormState {
+  titre: string;
+  description: string;
+  projectId: string;
+  dueKind: "date" | "text";
+  dueDate: string;
+  dueText: string;
+  statut: TaskStatus;
+  priorite: TaskPriority;
+  source: string;
+  assigneeIds: string[];
+}
+
+function initialState(task?: Task | null): FormState {
+  const kind = task ? getDueKind(task.dueDate) : "none";
+  return {
+    titre: task?.titre ?? "",
+    description: task?.description ?? "",
+    projectId: task?.projectId ?? "",
+    dueKind: kind === "text" ? "text" : "date",
+    dueDate: task?.dueDate.date ?? "",
+    dueText: task?.dueDate.text ?? "",
+    statut: task?.statut ?? "todo",
+    priorite: task?.priorite ?? "medium",
+    source: task?.source ?? "",
+    assigneeIds: task?.assignees.map((a) => a.id) ?? [],
+  };
+}
+
+const FIELD_CLASS =
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
+
+export function TaskFormDialog({
+  open,
+  mode,
+  task,
+  projects,
+  profiles,
+  onClose,
+}: TaskFormDialogProps) {
+  const router = useRouter();
+  const [form, setForm] = useState<FormState>(() => initialState(task));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // Reinitialise le formulaire a chaque ouverture / changement de tache cible, via le
+  // pattern « ajustement d'etat au rendu » (recommande par React plutot qu'un effet).
+  const formKey = `${open}:${task?.id ?? "new"}`;
+  const [renderedKey, setRenderedKey] = useState(formKey);
+  if (formKey !== renderedKey) {
+    setRenderedKey(formKey);
+    if (open) {
+      setForm(initialState(task));
+      setError(null);
+    }
+  }
+
+  if (!open) return null;
+
+  function update<K extends keyof FormState>(key: K, value: FormState[K]): void {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleAssignee(id: string): void {
+    setForm((prev) => ({
+      ...prev,
+      assigneeIds: prev.assigneeIds.includes(id)
+        ? prev.assigneeIds.filter((a) => a !== id)
+        : [...prev.assigneeIds, id],
+    }));
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    setError(null);
+
+    const values: TaskFormValues = {
+      titre: form.titre.trim(),
+      description: form.description.trim() || null,
+      projectId: form.projectId || null,
+      dueKind: form.dueKind,
+      dueDate: form.dueDate || null,
+      dueText: form.dueText || null,
+      statut: form.statut,
+      priorite: form.priorite,
+      source: form.source.trim() || null,
+      assigneeIds: form.assigneeIds,
+    };
+
+    startTransition(async () => {
+      const result =
+        mode === "create"
+          ? await createTaskAction(values)
+          : await updateTaskAction(task!.id, values);
+
+      if (result.ok) {
+        router.refresh();
+        onClose();
+      } else {
+        setError(result.error ?? "Une erreur est survenue.");
+      }
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === "create" ? "Nouvelle tache" : "Modifier la tache"}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="my-8 w-full max-w-lg rounded-xl border border-border bg-surface shadow-lg">
+        <header className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-lg font-semibold tracking-tight">
+            {mode === "create" ? "Nouvelle tache" : "Modifier la tache"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+          >
+            <X className="size-5" />
+          </button>
+        </header>
+
+        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+          <div className="space-y-1">
+            <label htmlFor="titre" className="text-sm font-medium">
+              Titre <span className="text-status-blocked">*</span>
+            </label>
+            <input
+              id="titre"
+              required
+              value={form.titre}
+              onChange={(e) => update("titre", e.target.value)}
+              className={FIELD_CLASS}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="description" className="text-sm font-medium">
+              Description
+            </label>
+            <textarea
+              id="description"
+              rows={3}
+              value={form.description}
+              onChange={(e) => update("description", e.target.value)}
+              className={FIELD_CLASS}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="project" className="text-sm font-medium">
+                Projet
+              </label>
+              <select
+                id="project"
+                value={form.projectId}
+                onChange={(e) => update("projectId", e.target.value)}
+                className={FIELD_CLASS}
+              >
+                <option value="">Aucun</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="source" className="text-sm font-medium">
+                Source
+              </label>
+              <input
+                id="source"
+                value={form.source}
+                onChange={(e) => update("source", e.target.value)}
+                placeholder="CR reunion, etc."
+                className={FIELD_CLASS}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="statut" className="text-sm font-medium">
+                Statut
+              </label>
+              <select
+                id="statut"
+                value={form.statut}
+                onChange={(e) => update("statut", e.target.value as TaskStatus)}
+                className={FIELD_CLASS}
+              >
+                {TASK_STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="priorite" className="text-sm font-medium">
+                Priorite
+              </label>
+              <select
+                id="priorite"
+                value={form.priorite}
+                onChange={(e) => update("priorite", e.target.value as TaskPriority)}
+                className={FIELD_CLASS}
+              >
+                {TASK_PRIORITIES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Echeance : toggle explicite date precise / texte libre (decision 1). */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Echeance</legend>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="dueKind"
+                  checked={form.dueKind === "date"}
+                  onChange={() => update("dueKind", "date")}
+                />
+                Date precise
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="dueKind"
+                  checked={form.dueKind === "text"}
+                  onChange={() => update("dueKind", "text")}
+                />
+                Texte libre
+              </label>
+            </div>
+            {form.dueKind === "date" ? (
+              <input
+                type="date"
+                aria-label="Date d'echeance"
+                value={form.dueDate}
+                onChange={(e) => update("dueDate", e.target.value)}
+                className={FIELD_CLASS}
+              />
+            ) : (
+              <input
+                type="text"
+                aria-label="Echeance en texte libre"
+                placeholder="ex. mi-juillet, semaine prochaine"
+                value={form.dueText}
+                onChange={(e) => update("dueText", e.target.value)}
+                className={FIELD_CLASS}
+              />
+            )}
+          </fieldset>
+
+          <div className="space-y-1">
+            <span className="text-sm font-medium">Responsable(s)</span>
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+              {profiles.length === 0 ? (
+                <p className="px-1 text-xs text-muted-foreground">Aucun membre.</p>
+              ) : (
+                profiles.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 px-1 py-0.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.assigneeIds.includes(p.id)}
+                      onChange={() => toggleAssignee(p.id)}
+                    />
+                    {p.nom}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          {error ? <p className="text-sm text-status-blocked">{error}</p> : null}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
+            >
+              {pending ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
