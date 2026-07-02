@@ -5,5 +5,8 @@ fastapi>=0.115,<1.0
 uvicorn[standard]>=0.32
 pydantic>=2.9
 pydantic-settings>=2.6
-pyjwt>=2.9
+# [crypto] = dependance `cryptography`, REQUISE pour verifier les tokens ES256/RS256
+# (JWT Signing Keys Supabase via JWKS). Sans cet extra, un build propre casserait
+# l'auth en production (les access_tokens utilisateurs sont signes en ES256).
+pyjwt[crypto]>=2.9
 supabase>=2.9

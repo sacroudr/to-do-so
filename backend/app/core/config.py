@@ -52,8 +52,30 @@ class Settings(BaseSettings):
         return f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
 
     # --- CORS ---
-    # Origines autorisees a appeler l'API (ex. l'URL du frontend Next.js).
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # URL du frontend autorisee a appeler l'API, pilotee par la variable
+    # d'environnement FRONTEND_URL (plutot qu'une liste codee en dur, pour la changer
+    # sans redeployer le code). Accepte plusieurs origines separees par des virgules
+    # (ex. domaine de production + domaine de preview Vercel).
+    frontend_url: str | None = Field(
+        default=None,
+        description="Origine(s) frontend autorisee(s) par CORS (FRONTEND_URL)",
+    )
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Origines CORS autorisees : localhost (dev) + FRONTEND_URL (production).
+
+        `http://localhost:3000` reste toujours autorise pour le developpement local ;
+        la/les origine(s) de production sont ajoutees depuis FRONTEND_URL si definie.
+        """
+        origins = ["http://localhost:3000"]
+        if self.frontend_url:
+            origins.extend(
+                url.strip().rstrip("/")
+                for url in self.frontend_url.split(",")
+                if url.strip()
+            )
+        return origins
 
 
 @lru_cache

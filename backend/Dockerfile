@@ -36,9 +36,15 @@ COPY app ./app
 
 USER app
 
+# Informatif pour le dev local (docker-compose). En production, l'hebergeur (Railway)
+# attribue le port dynamiquement via la variable $PORT — voir le CMD ci-dessous.
 EXPOSE 8000
 
+# Sonde interne tolerante au port dynamique ($PORT si present, sinon 8000).
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8000') + '/health')" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Forme shell (sh -c) pour que ${PORT} soit INTERPRETE a l'execution : Railway injecte
+# $PORT dynamiquement ; en local (docker-compose) on retombe sur 8000. NE PAS coder un
+# port fixe ici.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
