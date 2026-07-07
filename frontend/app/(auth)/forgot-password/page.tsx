@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -18,16 +18,36 @@ const FIELD_CLASS =
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
     setLoading(true);
 
     const supabase = createSupabaseBrowserClient();
-    await supabase.auth.resetPasswordForEmail(email);
+    // Le lien de l'email revient sur /auth/callback (echange du code -> session),
+    // qui redirige ensuite vers /reset-password (saisie du nouveau mot de passe).
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
 
     setLoading(false);
+
+    // On NE confirme « envoye » que si Supabase n'a pas renvoye d'erreur. Supabase
+    // repond deja « succes » pour un email inexistant (anti-enumeration) : ce garde-fou
+    // ne fait donc que surfacer les VRAIES erreurs (quota d'envoi 429, SMTP, reseau),
+    // qui etaient auparavant masquees par un « email envoye » toujours affiche.
+    if (resetError) {
+      setError(
+        resetError.status === 429
+          ? "Trop de demandes en peu de temps. Patientez quelques minutes puis reessayez."
+          : "L'envoi de l'email a echoue. Reessayez dans un instant ; si le probleme persiste, contactez l'administrateur.",
+      );
+      return;
+    }
+
     setSent(true);
   }
 
@@ -86,6 +106,16 @@ export default function ForgotPasswordPage() {
           />
         </div>
       </div>
+
+      {error ? (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+        >
+          <AlertCircle className="size-4 shrink-0" aria-hidden />
+          {error}
+        </div>
+      ) : null}
 
       <button
         type="submit"

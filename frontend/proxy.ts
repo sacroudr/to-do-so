@@ -53,9 +53,12 @@ export const config = {
   /*
    * Applique le proxy a toutes les routes SAUF :
    * - les routes d'API internes de Next (_next/static, _next/image)
+   * - les Route Handlers d'authentification (/auth/*) : le callback doit pouvoir
+   *   echanger le code AVANT qu'une session existe (sinon il serait redirige vers
+   *   /login), et la deconnexion ne doit pas etre interceptee.
    * - les fichiers de metadonnees et assets statiques
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
