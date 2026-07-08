@@ -29,9 +29,10 @@ vi.mock("@/lib/api/subtask-actions", () => ({
   reorderSubtasksAction: vi.fn(),
 }));
 
+// L'upload ne passe plus par une Server Action (il part direct du navigateur vers l'API) :
+// seule la lecture `listAttachmentsAction` reste a neutraliser ici.
 vi.mock("@/lib/api/attachment-actions", () => ({
   listAttachmentsAction: vi.fn().mockResolvedValue([]),
-  uploadAttachmentAction: vi.fn(),
 }));
 
 function makeTask(overrides: Partial<Task> = {}): Task {

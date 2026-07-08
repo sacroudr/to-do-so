@@ -25,5 +25,14 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     // Ne pas ramasser les specs Playwright (elles vivent dans e2e/).
     include: ["__tests__/**/*.test.{ts,tsx}"],
+    // Valeurs PUBLIQUES factices pour les variables NEXT_PUBLIC_* : Vitest ne charge pas
+    // `.env.local`, or `@/lib/env` echoue tot (`required`) si elles manquent. Les
+    // composants client testes (ex. TaskAttachments) importent ce module au chargement.
+    // Ce ne sont PAS des secrets — juste de quoi satisfaire la validation au boot.
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
+    },
   },
 });

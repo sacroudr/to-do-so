@@ -3,11 +3,10 @@
 import { Download, Loader2, Paperclip, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import {
-  listAttachmentsAction,
-  uploadAttachmentAction,
-} from "@/lib/api/attachment-actions";
+import { listAttachmentsAction } from "@/lib/api/attachment-actions";
 import { MAX_ATTACHMENT_BYTES } from "@/lib/constants/attachment";
+import { apiEnv } from "@/lib/env";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { TaskAttachment } from "@/lib/types/domain";
 
 /**
@@ -69,17 +68,49 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
       return;
     }
 
-    const body = new FormData();
-    body.append("file", file);
-
     setUploading(true);
-    const result = await uploadAttachmentAction(taskId, body);
-    if (result.ok) {
+    try {
+      // Le fichier part DIRECTEMENT du navigateur vers l'API FastAPI, sans transiter par
+      // une Server Action / Serverless Function Vercel : celle-ci plafonne le corps des
+      // requetes a ~4,5 Mo (limite dure non contournable par `serverActions.bodySizeLimit`),
+      // ce qui bloquait les PDF volumineux en prod. Le backend applique la vraie limite (10 Mo).
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      const body = new FormData();
+      body.append("file", file, file.name);
+
+      // On ne pose PAS d'en-tete Content-Type : `fetch` calcule le boundary multipart.
+      const response = await fetch(
+        `${apiEnv.baseUrl}/api/v1/tasks/${taskId}/attachments`,
+        {
+          method: "POST",
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          body,
+        },
+      );
+
+      if (!response.ok) {
+        if (response.status === 413) {
+          setError("Le fichier dépasse la taille maximale (10 Mo).");
+        } else if (response.status === 422) {
+          setError("Seuls les fichiers PDF sont acceptés.");
+        } else {
+          setError("L'envoi de la pièce jointe a échoué.");
+        }
+        return;
+      }
+
+      // Succes (201) : on rafraichit la liste (lecture seule, sans probleme de taille).
       setItems(await listAttachmentsAction(taskId));
-    } else {
-      setError(result.error ?? "L'envoi de la pièce jointe a échoué.");
+    } catch {
+      setError("L'envoi de la pièce jointe a échoué.");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   }
 
   return (

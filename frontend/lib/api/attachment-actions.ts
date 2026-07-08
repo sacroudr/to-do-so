@@ -1,16 +1,19 @@
 "use server";
 
 /**
- * Server Actions des pieces jointes PDF (requirements.md §5).
+ * Server Action de LECTURE des pieces jointes PDF (requirements.md §5).
  *
- * L'upload passe par une Server Action qui recoit un `FormData` (fichier) et le
- * RELAIE en multipart a l'API FastAPI (qui valide type/taille puis stocke). On
- * n'utilise PAS `apiFetch` ici : ce wrapper force `Content-Type: application/json`,
- * incompatible avec un envoi multipart (le boundary doit etre pose par `fetch`).
+ * Seule la lecture de la liste passe encore par une Server Action : elle est en lecture
+ * seule (`cache: "no-store"`), sans corps volumineux, donc sans probleme de plafond.
+ *
+ * L'UPLOAD, lui, ne passe PLUS par ici : le fichier part DIRECTEMENT du navigateur vers
+ * l'API FastAPI (cf. `components/tasks/task-attachments.tsx`). Faire transiter le fichier
+ * par une Serverless Function Vercel butait sur son plafond DUR de ~4,5 Mo sur le corps des
+ * requetes (que `serverActions.bodySizeLimit` ne peut pas outrepasser), ce qui rejetait les
+ * PDF volumineux en production. Aucune revalidation de cache n'est necessaire : les pieces
+ * jointes ne pilotent aucun badge des cartes Kanban/Liste/dashboard (le composant rafraichit
+ * lui-meme sa propre liste apres un ajout).
  */
-import { revalidatePath } from "next/cache";
-
-import { MAX_ATTACHMENT_BYTES, PDF_MIME } from "@/lib/constants/attachment";
 import { apiEnv } from "@/lib/env";
 import { getAccessToken } from "@/lib/supabase/server";
 import type { TaskAttachment } from "@/lib/types/domain";
@@ -26,13 +29,6 @@ interface AttachmentDTO {
   created_at: string | null;
   signed_url: string | null;
 }
-
-export interface UploadResult {
-  ok: boolean;
-  error?: string;
-}
-
-const AFFECTED_PATHS = ["/kanban", "/list", "/dashboard"] as const;
 
 function toAttachment(dto: AttachmentDTO): TaskAttachment {
   return {
@@ -64,53 +60,5 @@ export async function listAttachmentsAction(taskId: string): Promise<TaskAttachm
     return dtos.map(toAttachment);
   } catch {
     return [];
-  }
-}
-
-/** Televerse un PDF (multipart) pour une tache ; valide type/taille (§5). */
-export async function uploadAttachmentAction(
-  taskId: string,
-  formData: FormData,
-): Promise<UploadResult> {
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return { ok: false, error: "Aucun fichier sélectionné." };
-  }
-  // Pre-validation cote serveur (le backend re-valide via magic bytes + taille).
-  if (file.type !== PDF_MIME) {
-    return { ok: false, error: "Seuls les fichiers PDF sont acceptés." };
-  }
-  if (file.size > MAX_ATTACHMENT_BYTES) {
-    return { ok: false, error: "Le fichier dépasse la taille maximale (10 Mo)." };
-  }
-
-  try {
-    const accessToken = await getAccessToken();
-    const body = new FormData();
-    body.append("file", file, file.name);
-
-    const response = await fetch(
-      `${apiEnv.baseUrl}/api/v1/tasks/${taskId}/attachments`,
-      {
-        method: "POST",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        body,
-      },
-    );
-
-    if (!response.ok) {
-      if (response.status === 413) {
-        return { ok: false, error: "Le fichier dépasse la taille maximale (10 Mo)." };
-      }
-      if (response.status === 422) {
-        return { ok: false, error: "Seuls les fichiers PDF sont acceptés." };
-      }
-      return { ok: false, error: "L'envoi de la pièce jointe a échoué." };
-    }
-
-    for (const path of AFFECTED_PATHS) revalidatePath(path);
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "L'envoi de la pièce jointe a échoué." };
   }
 }
