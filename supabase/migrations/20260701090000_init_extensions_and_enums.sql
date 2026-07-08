@@ -13,6 +13,10 @@ create extension if not exists pgcrypto;
 -- Statuts de tache = colonnes de la vue Kanban (§4.3), dans l'ordre d'affichage.
 -- Valeurs techniques en anglais ; les libelles FR vivent cote frontend
 -- (frontend/lib/constants/task.ts), conformement a la convention d'architecture.md §4.
+--
+-- NOTE (evolution posterieure) : l'enum a ete refondu de 5 a 9 statuts et « blocked »
+-- retire, par la migration 20260707093000_task_status_9_states.sql. Ce fichier reste
+-- l'etat INITIAL (deja applique) ; ne pas le modifier — voir la migration dediee.
 do $$
 begin
   if not exists (select 1 from pg_type where typname = 'task_status') then

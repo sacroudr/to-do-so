@@ -5,8 +5,9 @@
  *
  * Ordres de reference :
  *   - priorite : low < medium < high (ordre de TASK_PRIORITIES)
- *   - statut   : ordre des colonnes Kanban (ordre de TASK_STATUSES) ->
- *                todo < in_progress < waiting < blocked < done
+ *   - statut   : ordre des colonnes Kanban (ordre de TASK_STATUSES) -> a_qualifier <
+ *                a_planifier < todo < in_progress < waiting < a_tester < a_corriger <
+ *                done < archive
  *   - responsable : alphabetique (locale fr) sur le nom du 1er responsable
  *   - echeance (regle confirmee, §4.4) :
  *       1. les taches avec une DATE precise (`dueDate.date`) d'abord, triees par date

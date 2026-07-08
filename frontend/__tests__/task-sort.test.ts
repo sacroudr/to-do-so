@@ -34,6 +34,7 @@ function makeTask(
     statut: "todo" as TaskStatus,
     priorite: "medium" as TaskPriority,
     source: null,
+    subtaskProgress: { total: 0, done: 0 },
     createdAt: "2026-07-01T00:00:00Z",
     updatedAt: "2026-07-01T00:00:00Z",
     ...overrides,
@@ -73,18 +74,32 @@ describe("sortTasks — vue Liste (§4.4)", () => {
   // Tri par statut (ordre des colonnes Kanban)
   // -------------------------------------------------------------------------
   it("should_order_by_status_following_kanban_column_order", () => {
-    // GIVEN des statuts melanges
+    // GIVEN les 9 statuts melanges (refonte 5 -> 9 : plus de « blocked »)
     const tasks = [
+      makeTask("archive", { statut: "archive" }),
       makeTask("done", { statut: "done" }),
+      makeTask("a_corriger", { statut: "a_corriger" }),
       makeTask("todo", { statut: "todo" }),
-      makeTask("blocked", { statut: "blocked" }),
+      makeTask("a_qualifier", { statut: "a_qualifier" }),
       makeTask("in_progress", { statut: "in_progress" }),
+      makeTask("a_tester", { statut: "a_tester" }),
       makeTask("waiting", { statut: "waiting" }),
+      makeTask("a_planifier", { statut: "a_planifier" }),
     ];
     // WHEN on trie par statut
     const sorted = sortTasks(tasks, "statut", "asc");
-    // THEN ordre = todo, in_progress, waiting, blocked, done
-    expect(ids(sorted)).toEqual(["todo", "in_progress", "waiting", "blocked", "done"]);
+    // THEN ordre = celui des colonnes Kanban (TASK_STATUSES)
+    expect(ids(sorted)).toEqual([
+      "a_qualifier",
+      "a_planifier",
+      "todo",
+      "in_progress",
+      "waiting",
+      "a_tester",
+      "a_corriger",
+      "done",
+      "archive",
+    ]);
   });
 
   // -------------------------------------------------------------------------

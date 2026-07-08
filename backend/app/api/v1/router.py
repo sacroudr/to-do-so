@@ -5,10 +5,19 @@ les clients existants (exigence d'evolutivite §8).
 """
 from fastapi import APIRouter
 
-from app.api.v1.routes import health, profiles, projects, tasks
+from app.api.v1.routes import (
+    attachments,
+    health,
+    profiles,
+    projects,
+    subtasks,
+    tasks,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(tasks.router)
+api_router.include_router(attachments.router)
+api_router.include_router(subtasks.router)
 api_router.include_router(projects.router)
 api_router.include_router(profiles.router)

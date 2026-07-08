@@ -1,9 +1,11 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type DragEvent } from "react";
 
 import { TaskCard } from "@/components/tasks/task-card";
+import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { ActionError } from "@/components/ui/action-error";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -34,6 +36,8 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [createStatus, setCreateStatus] = useState<TaskStatus | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -75,7 +79,7 @@ export function KanbanBoard({
         router.refresh();
       } else {
         setTasks(tasksProp); // revert vers l'etat serveur
-        setActionError(result.error ?? "Le changement de statut a echoue.");
+        setActionError(result.error ?? "Le changement de statut a échoué.");
       }
     });
   }
@@ -92,7 +96,7 @@ export function KanbanBoard({
         router.refresh();
       } else {
         setTasks(tasksProp);
-        setActionError(result.error ?? "La suppression de la tache a echoue.");
+        setActionError(result.error ?? "La suppression de la tâche a échoué.");
       }
     });
   }
@@ -101,7 +105,12 @@ export function KanbanBoard({
     <>
       <ActionError message={actionError} onDismiss={() => setActionError(null)} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/*
+        9 statuts : rangee flex a DEFILEMENT HORIZONTAL fluide (plutot qu'une grille
+        qui wrap et coupe les colonnes). Chaque colonne a une largeur fixe coherente
+        (w-72 shrink-0). Le glisser-deposer fonctionne a l'identique.
+      */}
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {TASK_STATUSES.map((status) => {
           const columnTasks = tasks.filter((t) => t.statut === status.value);
           const isOver = overStatus === status.value;
@@ -117,7 +126,7 @@ export function KanbanBoard({
               }}
               onDragLeave={() => setOverStatus((s) => (s === status.value ? null : s))}
               onDrop={(e) => handleDrop(e, status.value)}
-              className={`flex min-h-64 flex-col rounded-xl border-t-4 bg-surface-muted/60 transition-colors ${status.columnClassName} ${
+              className={`flex min-h-64 w-72 shrink-0 flex-col rounded-xl border-t-4 bg-surface-muted/60 transition-colors ${status.columnClassName} ${
                 isOver ? "ring-2 ring-primary/40" : ""
               }`}
             >
@@ -131,7 +140,7 @@ export function KanbanBoard({
               <div className="flex flex-1 flex-col gap-2 px-2 pb-3">
                 {columnTasks.length === 0 ? (
                   <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-                    Aucune tache
+                    Aucune tâche
                   </p>
                 ) : (
                   columnTasks.map((task) => (
@@ -142,14 +151,44 @@ export function KanbanBoard({
                       onDragStart={handleDragStart}
                       onEdit={setEditingTask}
                       onDelete={setPendingDelete}
+                      onOpenDetail={setDetailTask}
                     />
                   ))
                 )}
+
+                {/* Creation rapide : le statut de la colonne est pre-rempli (§4.3). */}
+                <button
+                  type="button"
+                  onClick={() => setCreateStatus(status.value)}
+                  className="mt-auto flex items-center justify-center gap-1 rounded-lg border border-dashed border-border px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Plus className="size-3.5" />
+                  Ajouter une tâche
+                </button>
               </div>
             </section>
           );
         })}
       </div>
+
+      <TaskDetailDialog
+        open={detailTask !== null}
+        task={detailTask}
+        onClose={() => setDetailTask(null)}
+        onEdit={(task) => {
+          setDetailTask(null);
+          setEditingTask(task);
+        }}
+      />
+
+      <TaskFormDialog
+        open={createStatus !== null}
+        mode="create"
+        initialStatus={createStatus ?? undefined}
+        projects={projects}
+        profiles={profiles}
+        onClose={() => setCreateStatus(null)}
+      />
 
       <TaskFormDialog
         open={editingTask !== null}
@@ -162,10 +201,10 @@ export function KanbanBoard({
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Supprimer la tache"
+        title="Supprimer la tâche"
         message={
           pendingDelete
-            ? `La tache « ${pendingDelete.titre} » sera definitivement supprimee.`
+            ? `La tâche « ${pendingDelete.titre} » sera définitivement supprimée.`
             : ""
         }
         confirmLabel="Supprimer"

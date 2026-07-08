@@ -35,6 +35,15 @@
   --primary-hover: #1d4ed8; /* blue-700 */
   --on-primary: #ffffff;
   --ring: #2563eb;
+
+  /*
+   * Rouge SEMANTIQUE « danger » (action destructive / erreur / urgence), distinct des
+   * couleurs de STATUT. Auparavant ce rouge etait emprunte au token de statut
+   * `status-blocked` ; depuis que le statut « bloque » a ete retire (statuts 5 -> 9),
+   * ce token dedie porte tous les usages hors-statut : suppression, texte d'erreur,
+   * champ obligatoire, echeance en retard, hover deconnexion.
+   */
+  --danger: #ef4444; /* red-500 */
 }
 
 @theme inline {
@@ -49,16 +58,28 @@
   --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
   --color-ring: var(--ring);
+  --color-danger: var(--danger);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Une couleur distinctive par statut de tache (§4.2 / §7). */
-  --color-status-todo: #6366f1; /* A faire   — indigo   */
-  --color-status-progress: #0ea5e9; /* En cours  — cyan     */
-  --color-status-waiting: #f59e0b; /* En attente — ambre    */
-  --color-status-blocked: #ef4444; /* Bloque    — rouge    */
-  --color-status-done: #10b981; /* Termine   — emeraude */
+  /*
+   * Une couleur distinctive par statut de tache (§4.2 / §7) — 9 statuts.
+   * Progression sobre : neutres « ardoise » en amont (a qualifier / a planifier) ->
+   * couleurs franches pour l'execution (todo / en cours / en attente) -> violet/rose
+   * pour tester / corriger -> emeraude « termine » -> gris fonce « archive ».
+   * AUCUN de ces tokens n'utilise le bleu de marque `#2563eb` (reserve a l'action).
+   * Le rouge « danger » est un token SEPARE (--color-danger), pas un statut.
+   */
+  --color-status-qualify: #64748b; /* A qualifier — ardoise (slate-500) */
+  --color-status-plan: #0d9488; /* A planifier — sarcelle (teal-600)  */
+  --color-status-todo: #6366f1; /* A faire     — indigo   */
+  --color-status-progress: #0ea5e9; /* En cours    — cyan     */
+  --color-status-waiting: #f59e0b; /* En attente  — ambre    */
+  --color-status-test: #8b5cf6; /* A tester    — violet   */
+  --color-status-fix: #e11d48; /* A corriger  — rose (rose-600) */
+  --color-status-done: #10b981; /* Termine     — emeraude */
+  --color-status-archive: #475569; /* Archive     — gris fonce (slate-600) */
 
   /* Accent visuel selon la priorite (§7). */
   --color-priority-low: #94a3b8;

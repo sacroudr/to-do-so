@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { TaskAttachments } from "@/components/tasks/task-attachments";
 import { Modal } from "@/components/ui/modal";
 import {
   createTaskAction,
@@ -25,10 +26,15 @@ export interface TaskFormDialogProps {
   open: boolean;
   mode: "create" | "edit";
   task?: Task | null;
+  /** Statut pre-rempli en mode creation (ex. colonne Kanban d'origine, §4.3). */
+  initialStatus?: TaskStatus;
   projects: Project[];
   profiles: Profile[];
   onClose: () => void;
 }
+
+/** Statut par defaut d'une nouvelle tache = premier statut (data-driven, pas de "todo" code en dur). */
+const DEFAULT_STATUS: TaskStatus = TASK_STATUSES[0].value;
 
 interface FormState {
   titre: string;
@@ -43,7 +49,7 @@ interface FormState {
   assigneeIds: string[];
 }
 
-function initialState(task?: Task | null): FormState {
+function initialState(task?: Task | null, initialStatus?: TaskStatus): FormState {
   const kind = task ? getDueKind(task.dueDate) : "none";
   return {
     titre: task?.titre ?? "",
@@ -52,7 +58,7 @@ function initialState(task?: Task | null): FormState {
     dueKind: kind === "text" ? "text" : "date",
     dueDate: task?.dueDate.date ?? "",
     dueText: task?.dueDate.text ?? "",
-    statut: task?.statut ?? "todo",
+    statut: task?.statut ?? initialStatus ?? DEFAULT_STATUS,
     priorite: task?.priorite ?? "medium",
     source: task?.source ?? "",
     assigneeIds: task?.assignees.map((a) => a.id) ?? [],
@@ -66,23 +72,25 @@ export function TaskFormDialog({
   open,
   mode,
   task,
+  initialStatus,
   projects,
   profiles,
   onClose,
 }: TaskFormDialogProps) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(() => initialState(task));
+  const [form, setForm] = useState<FormState>(() => initialState(task, initialStatus));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Reinitialise le formulaire a chaque ouverture / changement de tache cible, via le
-  // pattern « ajustement d'etat au rendu » (recommande par React plutot qu'un effet).
-  const formKey = `${open}:${task?.id ?? "new"}`;
+  // Reinitialise le formulaire a chaque ouverture / changement de tache cible OU de
+  // statut initial (creation rapide depuis une colonne Kanban §4.3), via le pattern
+  // « ajustement d'etat au rendu » (recommande par React plutot qu'un effet).
+  const formKey = `${open}:${task?.id ?? "new"}:${initialStatus ?? ""}`;
   const [renderedKey, setRenderedKey] = useState(formKey);
   if (formKey !== renderedKey) {
     setRenderedKey(formKey);
     if (open) {
-      setForm(initialState(task));
+      setForm(initialState(task, initialStatus));
       setError(null);
     }
   }
@@ -138,7 +146,7 @@ export function TaskFormDialog({
     <Modal open={open} onClose={onClose} labelledBy="task-dialog-title" className="max-w-lg">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 id="task-dialog-title" className="text-lg font-semibold tracking-tight">
-            {mode === "create" ? "Nouvelle tache" : "Modifier la tache"}
+            {mode === "create" ? "Nouvelle tâche" : "Modifier la tâche"}
           </h2>
           <button
             type="button"
@@ -153,7 +161,7 @@ export function TaskFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
           <div className="space-y-1">
             <label htmlFor="titre" className="text-sm font-medium">
-              Titre <span className="text-status-blocked">*</span>
+              Titre <span className="text-danger">*</span>
             </label>
             <input
               id="titre"
@@ -205,7 +213,7 @@ export function TaskFormDialog({
                 id="source"
                 value={form.source}
                 onChange={(e) => update("source", e.target.value)}
-                placeholder="CR reunion, etc."
+                placeholder="CR réunion, etc."
                 className={FIELD_CLASS}
               />
             </div>
@@ -232,7 +240,7 @@ export function TaskFormDialog({
 
             <div className="space-y-1">
               <label htmlFor="priorite" className="text-sm font-medium">
-                Priorite
+                Priorité
               </label>
               <select
                 id="priorite"
@@ -251,7 +259,7 @@ export function TaskFormDialog({
 
           {/* Echeance : toggle explicite date precise / texte libre (decision 1). */}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Echeance</legend>
+            <legend className="text-sm font-medium">Échéance</legend>
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-1.5">
                 <input
@@ -261,7 +269,7 @@ export function TaskFormDialog({
                   onChange={() => update("dueKind", "date")}
                   className="accent-primary"
                 />
-                Date precise
+                Date précise
               </label>
               <label className="flex items-center gap-1.5">
                 <input
@@ -277,7 +285,7 @@ export function TaskFormDialog({
             {form.dueKind === "date" ? (
               <input
                 type="date"
-                aria-label="Date d'echeance"
+                aria-label="Date d'échéance"
                 value={form.dueDate}
                 onChange={(e) => update("dueDate", e.target.value)}
                 className={FIELD_CLASS}
@@ -285,7 +293,7 @@ export function TaskFormDialog({
             ) : (
               <input
                 type="text"
-                aria-label="Echeance en texte libre"
+                aria-label="Échéance en texte libre"
                 placeholder="ex. mi-juillet, semaine prochaine"
                 value={form.dueText}
                 onChange={(e) => update("dueText", e.target.value)}
@@ -295,7 +303,7 @@ export function TaskFormDialog({
           </fieldset>
 
           <div className="space-y-1">
-            <span className="text-sm font-medium">Responsable(s)</span>
+            <span className="text-sm font-medium">Responsables</span>
             <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
               {profiles.length === 0 ? (
                 <p className="px-1 text-xs text-muted-foreground">Aucun membre.</p>
@@ -315,7 +323,14 @@ export function TaskFormDialog({
             </div>
           </div>
 
-          {error ? <p className="text-sm text-status-blocked">{error}</p> : null}
+          {/* Pieces jointes PDF (§5) : uniquement en edition (la tache doit exister). */}
+          {mode === "edit" && task ? (
+            <div className="border-t border-border pt-4">
+              <TaskAttachments taskId={task.id} />
+            </div>
+          ) : null}
+
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
 
           <div className="flex justify-end gap-2 pt-2">
             <button

@@ -42,7 +42,7 @@ function LoginForm() {
 
     setLoading(false);
     if (signInError) {
-      setError("Identifiants invalides. Veuillez reessayer.");
+      setError("Identifiants invalides. Veuillez réessayer.");
       return;
     }
     router.push(redirectedFrom);
@@ -53,7 +53,7 @@ function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">Connexion</h2>
-        <p className="text-sm text-muted-foreground">Accedez a votre espace de suivi.</p>
+        <p className="text-sm text-muted-foreground">Accédez à votre espace de suivi.</p>
       </div>
 
       <div className="space-y-1.5">
@@ -87,7 +87,7 @@ function LoginForm() {
             href="/forgot-password"
             className="text-xs font-medium text-primary hover:underline"
           >
-            Mot de passe oublie ?
+            Mot de passe oublié ?
           </Link>
         </div>
         <div className="relative">
@@ -118,7 +118,7 @@ function LoginForm() {
       {error ? (
         <div
           role="alert"
-          className="flex items-center gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+          className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           <AlertCircle className="size-4 shrink-0" aria-hidden />
           {error}

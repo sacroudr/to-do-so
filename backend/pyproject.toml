@@ -11,6 +11,8 @@ dependencies = [
     # [crypto] = `cryptography`, requise pour la verification ES256/RS256 (JWKS Supabase).
     "pyjwt[crypto]>=2.9",
     "supabase>=2.9",
+    # Requis par FastAPI pour lire les uploads multipart (pieces jointes PDF, §5).
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

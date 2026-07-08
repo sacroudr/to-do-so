@@ -28,6 +28,9 @@ export interface TaskDTO {
   priorite: TaskPriority;
   source: string | null;
   assignee_ids: string[];
+  /** Compteurs de checklist resolus par l'API (badge de progression, §4.2 extension). */
+  subtask_total: number;
+  subtask_done: number;
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -76,6 +79,10 @@ function toTask(
     statut: dto.statut,
     priorite: dto.priorite,
     source: dto.source,
+    subtaskProgress: {
+      total: dto.subtask_total ?? 0,
+      done: dto.subtask_done ?? 0,
+    },
     createdAt: dto.created_at ?? "",
     updatedAt: dto.updated_at ?? "",
   };

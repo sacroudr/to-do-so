@@ -58,13 +58,13 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     return (
       <span
         className={`${NAV_BASE} cursor-not-allowed text-muted-foreground/50`}
-        title="Fonctionnalite a venir"
+        title="Fonctionnalité à venir"
         aria-disabled="true"
       >
         <NavIcon name={item.icon} />
         <span className="flex-1">{item.label}</span>
         <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-          bientot
+          bientôt
         </span>
       </span>
     );
@@ -178,10 +178,10 @@ export function Sidebar({ user }: { user?: Profile | null }) {
         <form action="/auth/signout" method="post" className="mt-1">
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-status-blocked/10 hover:text-status-blocked"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
           >
             <LogOut className="size-4 shrink-0" aria-hidden />
-            Se deconnecter
+            Se déconnecter
           </button>
         </form>
       </div>

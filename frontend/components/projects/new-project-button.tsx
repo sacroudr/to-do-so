@@ -23,7 +23,7 @@ export function NewProjectButton() {
         Nouveau projet
       </button>
 
-      <ProjectFormDialog open={open} onClose={() => setOpen(false)} />
+      <ProjectFormDialog mode="create" open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

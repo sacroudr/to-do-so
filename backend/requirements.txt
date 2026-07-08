@@ -10,3 +10,6 @@ pydantic-settings>=2.6
 # l'auth en production (les access_tokens utilisateurs sont signes en ES256).
 pyjwt[crypto]>=2.9
 supabase>=2.9
+# Parsing des requetes multipart/form-data (upload de pieces jointes PDF, §5).
+# FastAPI en a besoin des qu'une route declare un UploadFile / File.
+python-multipart>=0.0.9

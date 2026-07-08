@@ -21,7 +21,7 @@ export function ActionError({
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+      className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
     >
       <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span className="flex-1">{message}</span>
@@ -29,7 +29,7 @@ export function ActionError({
         type="button"
         onClick={onDismiss}
         aria-label="Fermer"
-        className="shrink-0 rounded p-0.5 hover:bg-status-blocked/15"
+        className="shrink-0 rounded p-0.5 hover:bg-danger/15"
       >
         <X className="size-4" />
       </button>

@@ -69,6 +69,32 @@ def _fetch_assignee_ids(client: Any, task_id: str) -> list[str]:
     return [r["user_id"] for r in (result.data or [])]
 
 
+def _fetch_subtask_counts(
+    client: Any, task_ids: list[str]
+) -> dict[str, tuple[int, int]]:
+    """Compteurs de progression {task_id -> (total, done)} en UNE seule requete groupee.
+
+    Evite le N+1 pour le badge de checklist : on charge d'un coup les sous-taches de
+    toutes les taches listees, puis on agrege en memoire. Les taches sans sous-tache
+    sont simplement absentes du dictionnaire (le badge n'est alors pas affiche).
+    """
+    if not task_ids:
+        return {}
+    rows = (
+        client.table("task_subtasks")
+        .select("task_id, is_done")
+        .in_("task_id", task_ids)
+        .execute()
+        .data
+        or []
+    )
+    counts: dict[str, tuple[int, int]] = {}
+    for row in rows:
+        total, done = counts.get(row["task_id"], (0, 0))
+        counts[row["task_id"]] = (total + 1, done + (1 if row["is_done"] else 0))
+    return counts
+
+
 def list_task_records(
     *, assignee_id: str | None = None, project_id: str | None = None
 ) -> list[dict[str, Any]]:
@@ -97,9 +123,21 @@ def list_task_records(
             query = query.in_("id", allowed_task_ids)
 
         rows = query.order("created_at", desc=False).execute().data or []
-        return [
-            _with_assignees(row, _fetch_assignee_ids(client, row["id"])) for row in rows
-        ]
+
+        # Compteurs de checklist en une seule requete groupee (evite le N+1, §badge).
+        counts = _fetch_subtask_counts(client, [row["id"] for row in rows])
+
+        enriched: list[dict[str, Any]] = []
+        for row in rows:
+            total, done = counts.get(row["id"], (0, 0))
+            enriched.append(
+                {
+                    **_with_assignees(row, _fetch_assignee_ids(client, row["id"])),
+                    "subtask_total": total,
+                    "subtask_done": done,
+                }
+            )
+        return enriched
 
     return _run_or_offline(_query, offline_value=[])
 

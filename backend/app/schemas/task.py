@@ -8,11 +8,17 @@ from pydantic import BaseModel, model_validator
 
 
 class TaskStatus(str, Enum):
+    # Refonte 5 -> 9 statuts (§4.3). Ordre = flux Kanban. « blocked » retire (migre vers
+    # « waiting »). Valeurs alignees sur frontend/lib/types/domain.ts et l'enum Postgres.
+    A_QUALIFIER = "a_qualifier"
+    A_PLANIFIER = "a_planifier"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
     WAITING = "waiting"
-    BLOCKED = "blocked"
+    A_TESTER = "a_tester"
+    A_CORRIGER = "a_corriger"
     DONE = "done"
+    ARCHIVE = "archive"
 
 
 class TaskPriority(str, Enum):
@@ -33,7 +39,8 @@ class TaskBase(BaseModel):
     # contrainte CHECK equivalente (migration).
     due_date: date | None = None
     due_date_text: str | None = None
-    statut: TaskStatus = TaskStatus.TODO
+    # Defaut d'une nouvelle tache = premier statut du flux (« a qualifier »), §4.3.
+    statut: TaskStatus = TaskStatus.A_QUALIFIER
     priorite: TaskPriority = TaskPriority.MEDIUM
     source: str | None = None
 
@@ -70,6 +77,12 @@ class TaskUpdate(BaseModel):
 class Task(TaskBase):
     id: str
     assignee_ids: list[str] = []
+    # Progression de la checklist (§4.2, extension) : compteurs resolus dans la LISTE
+    # des taches (une seule requete groupee, cf. tasks_repo) pour alimenter le badge
+    # « done/total » sans requete par tache. 0/0 par defaut (tache sans sous-tache ou
+    # base injoignable) -> le badge n'est alors pas affiche cote frontend.
+    subtask_total: int = 0
+    subtask_done: int = 0
     # Metadonnees d'audit renseignees par la base (facultatives cote schema pour
     # rester tolerant aux fabriques de test) : auteur + horodatages.
     created_by: str | None = None

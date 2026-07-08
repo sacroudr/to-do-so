@@ -1,7 +1,5 @@
-import { Folder } from "lucide-react";
-import Link from "next/link";
-
 import { NewProjectButton } from "@/components/projects/new-project-button";
+import { ProjectCard } from "@/components/projects/project-card";
 import { getBoardData } from "@/lib/api/board";
 
 /**
@@ -33,29 +31,16 @@ export default async function ProjectsPage() {
 
       {projects.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Aucun projet pour le moment. Creez-en un avec « Nouveau projet ».
+          Aucun projet pour le moment. Créez-en un avec « Nouveau projet ».
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <li key={project.id}>
-              <Link
-                href={`/projects/${project.id}`}
-                className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-center gap-2">
-                  <Folder className="size-4 text-primary" aria-hidden />
-                  <span className="font-medium text-foreground">{project.nom}</span>
-                  <span className="ml-auto rounded-full bg-surface-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    {taskCountByProject.get(project.id) ?? 0} tache(s)
-                  </span>
-                </div>
-                {project.description ? (
-                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                    {project.description}
-                  </p>
-                ) : null}
-              </Link>
+              <ProjectCard
+                project={project}
+                taskCount={taskCountByProject.get(project.id) ?? 0}
+              />
             </li>
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { EditProjectButton } from "@/components/projects/edit-project-button";
 import { TaskTable } from "@/components/tasks/task-table";
 import { getBoardData } from "@/lib/api/board";
 
@@ -22,17 +23,20 @@ export default async function ProjectDetailPage(
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <p className="text-sm text-muted-foreground">Projet</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{project.nom}</h1>
-        {project.description ? (
-          <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
-        ) : null}
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Projet</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{project.nom}</h1>
+          {project.description ? (
+            <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
+          ) : null}
+        </div>
+        <EditProjectButton project={project} />
       </header>
 
       {tasks.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Aucune tache rattachee a ce projet.
+          Aucune tâche rattachée à ce projet.
         </div>
       ) : (
         <TaskTable tasks={tasks} projects={projects} profiles={profiles} />

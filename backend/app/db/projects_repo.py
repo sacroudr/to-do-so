@@ -45,3 +45,32 @@ def create_project_record(data: dict[str, Any]) -> dict[str, Any]:
     except _OFFLINE_ERRORS as exc:
         logger.warning("Base injoignable (create project), mode degrade: %s", exc)
         return {"id": str(uuid4()), **data}
+
+
+def update_project_record(
+    project_id: str, changes: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Met a jour le nom / la description d'un projet ; None si introuvable (§5).
+
+    Meme pattern que `update_task_record` : mode degrade (base injoignable) -> None,
+    ce qui se traduit par un 404 cote route (mise a jour non confirmee).
+    """
+    try:
+        client = get_supabase_client()
+        if changes:
+            result = (
+                client.table("projects").update(changes).eq("id", project_id).execute()
+            )
+        else:
+            # Aucun champ a modifier : on renvoie l'etat courant (ou None si absent).
+            result = (
+                client.table("projects")
+                .select(_PROJECT_COLUMNS)
+                .eq("id", project_id)
+                .execute()
+            )
+        rows = result.data or []
+        return rows[0] if rows else None
+    except _OFFLINE_ERRORS as exc:
+        logger.warning("Base injoignable (update project), mode degrade: %s", exc)
+        return None

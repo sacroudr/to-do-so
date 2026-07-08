@@ -4,12 +4,14 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { ActionError } from "@/components/ui/action-error";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SubtaskProgress } from "@/components/ui/subtask-progress";
 import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
 import { TASK_STATUSES } from "@/lib/constants/task";
 import { getDueKind } from "@/lib/tasks/due";
@@ -33,9 +35,9 @@ interface SortableColumn {
 }
 
 const SORTABLE_COLUMNS: readonly SortableColumn[] = [
-  { testid: "assignee", key: "assignee", label: "Responsable(s)" },
-  { testid: "due", key: "dueDate", label: "Echeance" },
-  { testid: "priorite", key: "priorite", label: "Priorite" },
+  { testid: "assignee", key: "assignee", label: "Responsable" },
+  { testid: "due", key: "dueDate", label: "Échéance" },
+  { testid: "priorite", key: "priorite", label: "Priorité" },
   { testid: "statut", key: "statut", label: "Statut" },
 ] as const;
 
@@ -57,6 +59,7 @@ export function TaskTable({
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
   const [sort, setSort] = useState<SortState | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -104,7 +107,7 @@ export function TaskTable({
       if (result.ok) router.refresh();
       else {
         setTasks(tasksProp);
-        setActionError(result.error ?? "Le changement de statut a echoue.");
+        setActionError(result.error ?? "Le changement de statut a échoué.");
       }
     });
   }
@@ -120,7 +123,7 @@ export function TaskTable({
       if (result.ok) router.refresh();
       else {
         setTasks(tasksProp);
-        setActionError(result.error ?? "La suppression de la tache a echoue.");
+        setActionError(result.error ?? "La suppression de la tâche a échoué.");
       }
     });
   }
@@ -166,7 +169,7 @@ export function TaskTable({
             {displayedTasks.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  Aucune tache a afficher.
+                  Aucune tâche à afficher.
                 </td>
               </tr>
             ) : (
@@ -178,14 +181,29 @@ export function TaskTable({
                   data-due-kind={getDueKind(task.dueDate)}
                   data-project-id={task.projectId ?? ""}
                   data-assignee-ids={task.assignees.map((a) => a.id).join(",")}
-                  className="border-b border-border last:border-0 hover:bg-surface-muted/50"
+                  onClick={() => setDetailTask(task)}
+                  className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-muted/50"
                 >
-                  <td className="px-4 py-3 font-medium text-foreground">{task.titre}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailTask(task);
+                        }}
+                        className="text-left hover:text-primary"
+                      >
+                        {task.titre}
+                      </button>
+                      <SubtaskProgress progress={task.subtaskProgress} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {task.project?.nom ?? "Sans projet"}
                   </td>
                   <td className="px-4 py-3 text-foreground/80">
-                    {task.assignees.map((a) => a.nom).join(", ") || "Non assigne"}
+                    {task.assignees.map((a) => a.nom).join(", ") || "Non assigné"}
                   </td>
                   <td className="px-4 py-3">
                     <DueDate
@@ -204,6 +222,7 @@ export function TaskTable({
                         data-testid="row-status-select"
                         aria-label="Changer le statut"
                         value={task.statut}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) => changeStatus(task.id, e.target.value as TaskStatus)}
                         className="cursor-pointer rounded-md border border-border bg-background px-1.5 py-1 text-xs outline-none focus:border-primary"
                       >
@@ -219,17 +238,23 @@ export function TaskTable({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
-                        onClick={() => setEditingTask(task)}
-                        aria-label="Modifier la tache"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTask(task);
+                        }}
+                        aria-label="Modifier la tâche"
                         className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                       >
                         <Pencil className="size-4" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPendingDelete(task)}
-                        aria-label="Supprimer la tache"
-                        className="rounded-md p-1 text-muted-foreground hover:bg-status-blocked/10 hover:text-status-blocked"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(task);
+                        }}
+                        aria-label="Supprimer la tâche"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -242,6 +267,16 @@ export function TaskTable({
         </table>
       </div>
 
+      <TaskDetailDialog
+        open={detailTask !== null}
+        task={detailTask}
+        onClose={() => setDetailTask(null)}
+        onEdit={(task) => {
+          setDetailTask(null);
+          setEditingTask(task);
+        }}
+      />
+
       <TaskFormDialog
         open={editingTask !== null}
         mode="edit"
@@ -253,10 +288,10 @@ export function TaskTable({
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Supprimer la tache"
+        title="Supprimer la tâche"
         message={
           pendingDelete
-            ? `La tache « ${pendingDelete.titre} » sera definitivement supprimee.`
+            ? `La tâche « ${pendingDelete.titre} » sera définitivement supprimée.`
             : ""
         }
         confirmLabel="Supprimer"

@@ -42,8 +42,8 @@ export default function ForgotPasswordPage() {
     if (resetError) {
       setError(
         resetError.status === 429
-          ? "Trop de demandes en peu de temps. Patientez quelques minutes puis reessayez."
-          : "L'envoi de l'email a echoue. Reessayez dans un instant ; si le probleme persiste, contactez l'administrateur.",
+          ? "Trop de demandes en peu de temps. Patientez quelques minutes puis réessayez."
+          : "L'envoi de l'email a échoué. Réessayez dans un instant ; si le problème persiste, contactez l'administrateur.",
       );
       return;
     }
@@ -58,11 +58,11 @@ export default function ForgotPasswordPage() {
           <CheckCircle2 className="size-6" aria-hidden />
         </span>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Verifiez votre boite mail</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Vérifiez votre boîte mail</h2>
           <p className="text-sm text-muted-foreground">
             Si un compte existe pour{" "}
             <span className="font-medium text-foreground">{email}</span>, un lien de
-            reinitialisation vient d&apos;etre envoye.
+            réinitialisation vient d&apos;être envoyé.
           </p>
         </div>
         <Link
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="size-4" aria-hidden />
-          Retour a la connexion
+          Retour à la connexion
         </Link>
       </div>
     );
@@ -79,9 +79,9 @@ export default function ForgotPasswordPage() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">Mot de passe oublie</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Mot de passe oublié</h2>
         <p className="text-sm text-muted-foreground">
-          Entrez votre email pour recevoir un lien de reinitialisation.
+          Entrez votre email pour recevoir un lien de réinitialisation.
         </p>
       </div>
 
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
       {error ? (
         <div
           role="alert"
-          className="flex items-center gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+          className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           <AlertCircle className="size-4 shrink-0" aria-hidden />
           {error}
@@ -128,7 +128,7 @@ export default function ForgotPasswordPage() {
             Envoi...
           </>
         ) : (
-          "Envoyer le lien de reinitialisation"
+          "Envoyer le lien de réinitialisation"
         )}
       </button>
 
@@ -138,7 +138,7 @@ export default function ForgotPasswordPage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
-          Retour a la connexion
+          Retour à la connexion
         </Link>
       </p>
     </form>

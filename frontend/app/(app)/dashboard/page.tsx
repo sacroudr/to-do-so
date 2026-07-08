@@ -5,6 +5,7 @@ import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getBoardData } from "@/lib/api/board";
 import { TASK_STATUSES } from "@/lib/constants/task";
+import { taskCountLabel } from "@/lib/i18n/plural";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -19,8 +20,15 @@ const MAX_UPCOMING = 6;
 
 function upcomingTasks(tasks: Task[]): Task[] {
   const today = new Date().toISOString().slice(0, 10);
+  // Etats terminaux (termine / archive) exclus des echeances a venir.
   return tasks
-    .filter((t) => t.dueDate.date && t.dueDate.date >= today && t.statut !== "done")
+    .filter(
+      (t) =>
+        t.dueDate.date &&
+        t.dueDate.date >= today &&
+        t.statut !== "done" &&
+        t.statut !== "archive",
+    )
     .sort((a, b) => (a.dueDate.date as string).localeCompare(b.dueDate.date as string))
     .slice(0, MAX_UPCOMING);
 }
@@ -54,18 +62,19 @@ export default async function DashboardPage() {
   }
 
   const upcoming = upcomingTasks(tasks);
-  const blocked = tasks.filter((t) => t.statut === "blocked");
+  // Le statut « bloque » a ete retire (refonte 5 -> 9) ; on met en avant « En attente ».
+  const waiting = tasks.filter((t) => t.statut === "waiting");
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Vue d&apos;ensemble des {tasks.length} tache(s) de l&apos;equipe.
+          Vue d&apos;ensemble des tâches de l&apos;équipe.
         </p>
       </header>
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {TASK_STATUSES.map((status) => (
           <Link
             key={status.value}
@@ -82,10 +91,10 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-semibold text-foreground">Echeances a venir</h2>
+          <h2 className="text-sm font-semibold text-foreground">Échéances à venir</h2>
           {upcoming.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              Aucune echeance datee a venir.
+              Aucune échéance datée à venir.
             </p>
           ) : (
             <ul className="mt-2">
@@ -98,18 +107,18 @@ export default async function DashboardPage() {
 
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="text-sm font-semibold text-foreground">
-            Taches bloquees
-            {blocked.length > 0 ? (
-              <span className="ml-2 rounded-full bg-status-blocked/15 px-2 py-0.5 text-xs text-status-blocked">
-                {blocked.length}
+            Tâches en attente
+            {waiting.length > 0 ? (
+              <span className="ml-2 rounded-full bg-status-waiting/15 px-2 py-0.5 text-xs text-status-waiting">
+                {waiting.length}
               </span>
             ) : null}
           </h2>
-          {blocked.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Aucune tache bloquee.</p>
+          {waiting.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Aucune tâche en attente.</p>
           ) : (
             <ul className="mt-2">
-              {blocked.map((task) => (
+              {waiting.map((task) => (
                 <TaskLine key={task.id} task={task} />
               ))}
             </ul>

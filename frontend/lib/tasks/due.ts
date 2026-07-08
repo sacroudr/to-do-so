@@ -27,7 +27,8 @@ const SOON_WINDOW_DAYS = 2;
 const MS_PER_DAY = 86_400_000;
 
 export function getDueUrgency(due: TaskDueDate, statut?: TaskStatus): DueUrgency {
-  if (statut === "done") return "none";
+  // Etats terminaux (termine / archive) : jamais « en retard ».
+  if (statut === "done" || statut === "archive") return "none";
   if (!due.date) return "none";
 
   const target = new Date(`${due.date}T00:00:00`);

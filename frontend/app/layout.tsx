@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "To-Do-So — Suivi de taches de l'equipe",
+  title: "To-Do-So — Suivi de tâches de l'équipe",
   description:
-    "Plateforme interne de suivi des taches et actions issues des reunions.",
+    "Plateforme interne de suivi des tâches et actions issues des réunions.",
 };
 
 export default function RootLayout({

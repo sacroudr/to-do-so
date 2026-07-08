@@ -72,7 +72,7 @@ export async function createTaskAction(values: TaskFormValues): Promise<ActionRe
     revalidateBoard();
     return { ok: true };
   } catch {
-    return { ok: false, error: "La creation de la tache a echoue." };
+    return { ok: false, error: "La création de la tâche a échoué." };
   }
 }
 
@@ -90,7 +90,7 @@ export async function updateTaskAction(
     revalidateBoard();
     return { ok: true };
   } catch {
-    return { ok: false, error: "La modification de la tache a echoue." };
+    return { ok: false, error: "La modification de la tâche a échoué." };
   }
 }
 
@@ -109,7 +109,7 @@ export async function updateTaskStatusAction(
     revalidateBoard();
     return { ok: true };
   } catch {
-    return { ok: false, error: "Le changement de statut a echoue." };
+    return { ok: false, error: "Le changement de statut a échoué." };
   }
 }
 
@@ -120,6 +120,6 @@ export async function deleteTaskAction(taskId: string): Promise<ActionResult> {
     revalidateBoard();
     return { ok: true };
   } catch {
-    return { ok: false, error: "La suppression de la tache a echoue." };
+    return { ok: false, error: "La suppression de la tâche a échoué." };
   }
 }

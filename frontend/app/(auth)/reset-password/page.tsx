@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caracteres.`);
+      setError(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
       return;
     }
     if (password !== confirm) {
@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
 
     if (updateError) {
       setError(
-        "La reinitialisation a echoue. Le lien a peut-etre expire — redemandez-en un.",
+        "La réinitialisation a échoué. Le lien a peut-être expiré — redemandez-en un.",
       );
       return;
     }
@@ -116,7 +116,7 @@ export default function ResetPasswordPage() {
       {error ? (
         <div
           role="alert"
-          className="flex items-center gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-sm text-status-blocked"
+          className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           <AlertCircle className="size-4 shrink-0" aria-hidden />
           {error}
@@ -134,7 +134,7 @@ export default function ResetPasswordPage() {
             Enregistrement...
           </>
         ) : (
-          "Definir le nouveau mot de passe"
+          "Définir le nouveau mot de passe"
         )}
       </button>
     </form>

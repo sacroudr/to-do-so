@@ -42,6 +42,20 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class UnprocessableEntityError(AppError):
+    """Entree invalide (ex. fichier non conforme). 422."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "unprocessable_entity"
+
+
+class PayloadTooLargeError(AppError):
+    """Corps de requete trop volumineux (ex. piece jointe > limite). 413."""
+
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    code = "payload_too_large"
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Enregistre le handler global des AppError sur l'application."""
 

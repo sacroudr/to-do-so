@@ -5,38 +5,52 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Modal } from "@/components/ui/modal";
-import { createProjectAction } from "@/lib/api/project-actions";
+import {
+  createProjectAction,
+  updateProjectAction,
+} from "@/lib/api/project-actions";
+import type { Project } from "@/lib/types/domain";
 
 /**
- * Formulaire de creation d'un projet (requirements.md §5).
+ * Formulaire de creation / edition d'un projet (requirements.md §5).
  *
- * Coherent avec `task-form-dialog` (meme structure de modale, memes tokens de la
- * direction visuelle validee : palette slate + primary, coins arrondis, focus ring).
- * Champs : nom (obligatoire) et description.
+ * Coherent avec `task-form-dialog` : meme structure de modale, memes tokens de la
+ * direction visuelle validee (palette slate + primary, coins arrondis, focus ring), et
+ * meme couple de modes `create` | `edit`. Champs : nom (obligatoire) et description.
+ * En mode `edit`, le formulaire est PRE-REMPLI a partir du projet cible.
  */
+export interface ProjectFormDialogProps {
+  open: boolean;
+  mode: "create" | "edit";
+  /** Projet a editer (mode `edit` uniquement). */
+  project?: Project | null;
+  onClose: () => void;
+}
+
 const FIELD_CLASS =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 
 export function ProjectFormDialog({
   open,
+  mode,
+  project,
   onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+}: ProjectFormDialogProps) {
   const router = useRouter();
-  const [nom, setNom] = useState("");
-  const [description, setDescription] = useState("");
+  const [nom, setNom] = useState(project?.nom ?? "");
+  const [description, setDescription] = useState(project?.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Reinitialise les champs a chaque ouverture (pattern « ajustement au rendu »).
-  const [renderedOpen, setRenderedOpen] = useState(open);
-  if (open !== renderedOpen) {
-    setRenderedOpen(open);
+  // Reinitialise les champs a chaque ouverture / changement de projet cible, via le
+  // pattern « ajustement d'etat au rendu » (comme task-form-dialog).
+  const formKey = `${open}:${project?.id ?? "new"}`;
+  const [renderedKey, setRenderedKey] = useState(formKey);
+  if (formKey !== renderedKey) {
+    setRenderedKey(formKey);
     if (open) {
-      setNom("");
-      setDescription("");
+      setNom(project?.nom ?? "");
+      setDescription(project?.description ?? "");
       setError(null);
     }
   }
@@ -46,11 +60,12 @@ export function ProjectFormDialog({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setError(null);
+    const values = { nom: nom.trim(), description: description.trim() || null };
     startTransition(async () => {
-      const result = await createProjectAction({
-        nom: nom.trim(),
-        description: description.trim() || null,
-      });
+      const result =
+        mode === "create"
+          ? await createProjectAction(values)
+          : await updateProjectAction(project!.id, values);
       if (result.ok) {
         router.refresh();
         onClose();
@@ -64,7 +79,7 @@ export function ProjectFormDialog({
     <Modal open={open} onClose={onClose} labelledBy="project-dialog-title" className="max-w-md">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 id="project-dialog-title" className="text-lg font-semibold tracking-tight">
-            Nouveau projet
+            {mode === "create" ? "Nouveau projet" : "Modifier le projet"}
           </h2>
           <button
             type="button"
@@ -79,7 +94,7 @@ export function ProjectFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
           <div className="space-y-1">
             <label htmlFor="project-nom" className="text-sm font-medium">
-              Nom <span className="text-status-blocked">*</span>
+              Nom <span className="text-danger">*</span>
             </label>
             <input
               id="project-nom"
@@ -104,7 +119,7 @@ export function ProjectFormDialog({
             />
           </div>
 
-          {error ? <p className="text-sm text-status-blocked">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -119,7 +134,11 @@ export function ProjectFormDialog({
               disabled={pending}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
             >
-              {pending ? "Enregistrement..." : "Creer le projet"}
+              {pending
+                ? "Enregistrement..."
+                : mode === "create"
+                  ? "Créer le projet"
+                  : "Enregistrer"}
             </button>
           </div>
         </form>

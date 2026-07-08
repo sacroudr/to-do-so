@@ -35,7 +35,7 @@ export function ConfirmDialog({
     <Modal open={open} onClose={onCancel} ariaLabel={title} className="max-w-sm">
       <div className="p-5">
         <div className="flex gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-blocked/10 text-status-blocked">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger">
             <AlertTriangle className="size-5" aria-hidden />
           </span>
           <div className="space-y-1">
@@ -57,7 +57,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className="rounded-lg bg-status-blocked px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {pending ? "Suppression..." : confirmLabel}
           </button>

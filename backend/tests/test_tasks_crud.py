@@ -71,7 +71,8 @@ def test_should_reject_creation_when_titre_missing(client, auth_headers):
 
 
 def test_should_reject_creation_when_status_is_invalid(client, auth_headers):
-    """GIVEN un statut hors enumeration (§4.2 : a faire/en cours/en attente/bloque/termine)
+    """GIVEN un statut hors enumeration (§4.3 : a qualifier / a planifier / a faire /
+    en cours / en attente / a tester / a corriger / termine / archive)
     WHEN on POST /tasks
     THEN 422.
     """
@@ -110,7 +111,8 @@ def test_should_accept_creation_with_all_fields(client, auth_headers):
 def test_should_apply_default_status_and_priority(client, auth_headers):
     """GIVEN un payload minimal valide (titre + une echeance)
     WHEN on POST /tasks
-    THEN 201 avec statut par defaut `todo` et priorite par defaut `medium` (§4.2).
+    THEN 201 avec statut par defaut `a_qualifier` (premier statut du flux, refonte
+      5 -> 9) et priorite par defaut `medium` (§4.2 / §4.3).
     """
     response = client.post(
         TASKS_PATH,
@@ -119,7 +121,7 @@ def test_should_apply_default_status_and_priority(client, auth_headers):
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["statut"] == "todo"
+    assert body["statut"] == "a_qualifier"
     assert body["priorite"] == "medium"
 
 

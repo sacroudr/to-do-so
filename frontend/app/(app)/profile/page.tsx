@@ -28,7 +28,7 @@ export default async function ProfilePage() {
 
       {profile === null ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Impossible de charger votre profil. Verifiez votre connexion et reessayez.
+          Impossible de charger votre profil. Vérifiez votre connexion et réessayez.
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-surface p-6">

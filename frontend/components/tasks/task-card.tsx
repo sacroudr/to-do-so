@@ -1,8 +1,9 @@
 import { Pencil, Trash2 } from "lucide-react";
-import type { DragEvent } from "react";
+import type { DragEvent, KeyboardEvent } from "react";
 
 import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
+import { SubtaskProgress } from "@/components/ui/subtask-progress";
 import { PRIORITY_BY_VALUE } from "@/lib/constants/task";
 import type { Task } from "@/lib/types/domain";
 
@@ -13,6 +14,10 @@ import type { Task } from "@/lib/types/domain";
  * priorite (§7) est une bordure gauche coloree. Les `data-testid` constituent le
  * contrat des tests E2E ; `data-*` (task-id, project-id, assignee-ids) servent au
  * glisser-deposer et aux filtres.
+ *
+ * Un clic sur la carte ouvre le panneau de detail (§4.2, `onOpenDetail`), SANS
+ * declencher le glisser-deposer ni les boutons crayon/corbeille (qui stoppent la
+ * propagation). Acces clavier : la carte est focusable et reagit a Entree / Espace.
  */
 export interface TaskCardProps {
   task: Task;
@@ -20,6 +25,7 @@ export interface TaskCardProps {
   onDragStart?: (event: DragEvent<HTMLElement>, task: Task) => void;
   onEdit?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onOpenDetail?: (task: Task) => void;
 }
 
 export function TaskCard({
@@ -28,9 +34,20 @@ export function TaskCard({
   onDragStart,
   onEdit,
   onDelete,
+  onOpenDetail,
 }: TaskCardProps) {
   const priorityAccent = PRIORITY_BY_VALUE[task.priorite].accentClassName;
   const assigneeNames = task.assignees.map((a) => a.nom).join(", ");
+
+  // Ouvre le detail au clavier UNIQUEMENT si le focus est sur la carte elle-meme
+  // (pas sur un bouton interne), pour ne pas capturer Entree/Espace des actions.
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>): void {
+    if (!onOpenDetail || event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpenDetail(task);
+    }
+  }
 
   return (
     <article
@@ -40,7 +57,12 @@ export function TaskCard({
       data-assignee-ids={task.assignees.map((a) => a.id).join(",")}
       draggable={draggable}
       onDragStart={onDragStart ? (event) => onDragStart(event, task) : undefined}
-      className={`group cursor-grab rounded-xl border border-border border-l-4 bg-surface p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing ${priorityAccent}`}
+      onClick={onOpenDetail ? () => onOpenDetail(task) : undefined}
+      onKeyDown={onOpenDetail ? handleKeyDown : undefined}
+      role={onOpenDetail ? "button" : undefined}
+      tabIndex={onOpenDetail ? 0 : undefined}
+      aria-label={onOpenDetail ? `Voir le détail de la tâche ${task.titre}` : undefined}
+      className={`group cursor-grab rounded-xl border border-border border-l-4 bg-surface p-3 shadow-sm transition-shadow hover:shadow-md focus-visible:shadow-md active:cursor-grabbing ${priorityAccent}`}
     >
       <div className="flex items-start justify-between gap-2">
         <h3
@@ -53,8 +75,11 @@ export function TaskCard({
           {onEdit ? (
             <button
               type="button"
-              onClick={() => onEdit(task)}
-              aria-label="Modifier la tache"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(task);
+              }}
+              aria-label="Modifier la tâche"
               className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
             >
               <Pencil className="size-3.5" />
@@ -63,9 +88,12 @@ export function TaskCard({
           {onDelete ? (
             <button
               type="button"
-              onClick={() => onDelete(task)}
-              aria-label="Supprimer la tache"
-              className="rounded-md p-1 text-muted-foreground hover:bg-status-blocked/10 hover:text-status-blocked"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(task);
+              }}
+              aria-label="Supprimer la tâche"
+              className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
             >
               <Trash2 className="size-3.5" />
             </button>
@@ -78,16 +106,19 @@ export function TaskCard({
       </p>
 
       <p data-testid="task-card-assignees" className="mt-1 text-xs text-foreground/80">
-        {assigneeNames || "Non assigne"}
+        {assigneeNames || "Non assigné"}
       </p>
 
-      <div className="mt-3 flex items-center justify-between">
-        <DueDate
-          due={task.dueDate}
-          statut={task.statut}
-          testId="task-card-due"
-          className="text-xs"
-        />
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <DueDate
+            due={task.dueDate}
+            statut={task.statut}
+            testId="task-card-due"
+            className="text-xs"
+          />
+          <SubtaskProgress progress={task.subtaskProgress} />
+        </div>
         <span data-testid="task-card-priority">
           <PriorityBadge priority={task.priorite} />
         </span>

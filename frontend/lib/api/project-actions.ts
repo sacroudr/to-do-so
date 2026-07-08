@@ -41,6 +41,28 @@ export async function createProjectAction(
     for (const path of AFFECTED_PATHS) revalidatePath(path);
     return { ok: true };
   } catch {
-    return { ok: false, error: "La creation du projet a echoue." };
+    return { ok: false, error: "La création du projet a échoué." };
+  }
+}
+
+/** Renomme / modifie la description d'un projet existant (§5). */
+export async function updateProjectAction(
+  projectId: string,
+  values: ProjectFormValues,
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getAccessToken();
+    await apiFetch(`/api/v1/projects/${projectId}`, {
+      method: "PATCH",
+      accessToken,
+      body: {
+        nom: values.nom,
+        description: values.description || null,
+      },
+    });
+    for (const path of AFFECTED_PATHS) revalidatePath(path);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "La modification du projet a échoué." };
   }
 }

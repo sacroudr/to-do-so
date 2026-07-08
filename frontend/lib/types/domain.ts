@@ -6,8 +6,17 @@
  * doivent rester la source de verite des formes de donnees manipulees par l'UI.
  */
 
-/** Statuts d'une tache — colonnes de la vue Kanban (§4.3). */
-export type TaskStatus = "todo" | "in_progress" | "waiting" | "blocked" | "done";
+/** Statuts d'une tache — colonnes de la vue Kanban (§4.3), dans l'ordre du flux. */
+export type TaskStatus =
+  | "a_qualifier"
+  | "a_planifier"
+  | "todo"
+  | "in_progress"
+  | "waiting"
+  | "a_tester"
+  | "a_corriger"
+  | "done"
+  | "archive";
 
 /** Niveaux de priorite d'une tache (§4.2). */
 export type TaskPriority = "low" | "medium" | "high";
@@ -39,6 +48,43 @@ export interface TaskDueDate {
   text: string | null;
 }
 
+/** Piece jointe PDF d'une tache (table `task_attachments`, §5). */
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** Auteur de l'ajout (§5) + son nom resolu pour l'affichage. */
+  uploadedBy: string | null;
+  uploadedByName: string | null;
+  createdAt: string | null;
+  /** URL signee (bucket prive) pour le telechargement ; null si indisponible. */
+  signedUrl: string | null;
+}
+
+/** Sous-tache (item de checklist) d'une tache (table `task_subtasks`, §4.2, extension). */
+export interface Subtask {
+  id: string;
+  taskId: string;
+  title: string;
+  isDone: boolean;
+  /** Ordre d'affichage dans la checklist (0..n). */
+  position: number;
+  createdAt: string | null;
+}
+
+/**
+ * Progression de la checklist d'une tache (§4.2, extension), resolue avec la LISTE des
+ * taches pour alimenter le badge « done/total » sans requete par tache. Toujours
+ * present (0/0 si la tache n'a pas de sous-tache) : le badge n'est affiche que si
+ * `total > 0`.
+ */
+export interface SubtaskProgress {
+  total: number;
+  done: number;
+}
+
 /** Table `tasks` enrichie des relations resolues pour l'affichage. */
 export interface Task {
   id: string;
@@ -53,6 +99,8 @@ export interface Task {
   priorite: TaskPriority;
   /** Rattachement a la reunion / au compte rendu d'origine (§4.2). */
   source: string | null;
+  /** Avancement de la checklist (badge « done/total », §4.2 extension). */
+  subtaskProgress: SubtaskProgress;
   createdAt: string;
   updatedAt: string;
 }

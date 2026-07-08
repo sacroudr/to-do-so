@@ -40,7 +40,7 @@ export const PRIMARY_NAV: NavSection = {
  * dans la navigation et montrent l'intention d'evolution sans etre routables en phase 1.
  */
 export const FUTURE_NAV: NavSection = {
-  title: "A venir",
+  title: "À venir",
   items: [
     { label: "Notifications", href: "/notifications", icon: "bell", enabled: false },
     { label: "Statistiques", href: "/stats", icon: "bar-chart", enabled: false },
