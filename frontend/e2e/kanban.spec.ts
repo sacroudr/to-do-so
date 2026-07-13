@@ -26,17 +26,14 @@ test.describe("Vue Kanban (§4.3)", () => {
 
   test("should_render_one_column_per_status", async ({ page }) => {
     // GIVEN la vue Kanban
-    // THEN il existe une colonne pour chacun des 9 statuts (refonte 5 -> 9, §4.2)
+    // THEN il existe une colonne pour chacun des 6 statuts (reduction 9 -> 6, point 1)
     for (const status of [
-      "a_qualifier",
       "a_planifier",
       "todo",
       "in_progress",
-      "waiting",
       "a_tester",
       "a_corriger",
       "done",
-      "archive",
     ]) {
       await expect(
         page.locator(`[data-testid="kanban-column"][data-status="${status}"]`),

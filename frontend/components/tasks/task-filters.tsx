@@ -2,7 +2,8 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import type { Profile, Project } from "@/lib/types/domain";
+import { memberFullName } from "@/lib/team/name";
+import type { Project, TeamMember } from "@/lib/types/domain";
 
 /**
  * Filtres par responsable / projet (requirements.md §4.6).
@@ -16,10 +17,10 @@ const SELECT_CLASS =
 
 export function TaskFilters({
   projects,
-  profiles,
+  members,
 }: {
   projects: Project[];
-  profiles: Profile[];
+  members: TeamMember[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,9 +47,9 @@ export function TaskFilters({
         className={SELECT_CLASS}
       >
         <option value="">Tous les responsables</option>
-        {profiles.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.nom}
+        {members.map((m) => (
+          <option key={m.id} value={m.id}>
+            {memberFullName(m)}
           </option>
         ))}
       </select>

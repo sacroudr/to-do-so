@@ -4,18 +4,22 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
-import type { Profile, Project } from "@/lib/types/domain";
+import type { Project, TeamMember } from "@/lib/types/domain";
 
 /**
  * Bouton d'ajout de tache (requirements.md §4.2) : ouvre le formulaire en mode
- * creation. Present dans l'en-tete des vues Kanban et Liste.
+ * creation. Present dans l'en-tete des vues Kanban et Liste, ainsi que sur une fiche
+ * projet (point 5) — dans ce cas `initialProjectId` pre-remplit le projet affiche.
  */
 export function NewTaskButton({
   projects,
-  profiles,
+  members,
+  initialProjectId,
 }: {
   projects: Project[];
-  profiles: Profile[];
+  members: TeamMember[];
+  /** Projet pre-rempli a la creation (fiche projet, point 5). */
+  initialProjectId?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -34,7 +38,8 @@ export function NewTaskButton({
         open={open}
         mode="create"
         projects={projects}
-        profiles={profiles}
+        members={members}
+        initialProjectId={initialProjectId}
         onClose={() => setOpen(false)}
       />
     </>

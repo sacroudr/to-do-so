@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 _OFFLINE_ERRORS = (httpx.TransportError, ConnectionError, OSError)
 
-# Bucket PRIVE dedie (cree par la migration <timestamp>_task_attachments.sql).
-_BUCKET = "task-attachments"
+# Bucket PRIVE dedie (cree par la migration <timestamp>_task_attachments.sql). PUBLIC
+# (sans underscore) car reutilise par la suppression en cascade d'un projet (point 3),
+# qui doit purger les objets Storage des pieces jointes des taches supprimees.
+ATTACHMENTS_BUCKET = "task-attachments"
 _ATTACHMENT_COLUMNS = (
     "id, task_id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at"
 )
@@ -35,7 +37,7 @@ _SIGNED_URL_TTL_SECONDS = 3600
 def _signed_url(client: Any, storage_path: str) -> str | None:
     """URL signee (courte duree) pour telecharger un objet du bucket prive."""
     try:
-        response = client.storage.from_(_BUCKET).create_signed_url(
+        response = client.storage.from_(ATTACHMENTS_BUCKET).create_signed_url(
             storage_path, _SIGNED_URL_TTL_SECONDS
         )
         # storage3 expose la cle sous « signedURL » (et parfois « signedUrl »).
@@ -77,7 +79,7 @@ def create_attachment_record(
         client = get_supabase_client()
         # Chemin unique par tache : evite les collisions et regroupe par tache.
         storage_path = f"{task_id}/{uuid4()}.pdf"
-        client.storage.from_(_BUCKET).upload(
+        client.storage.from_(ATTACHMENTS_BUCKET).upload(
             storage_path,
             content,
             {"content-type": content_type, "upsert": "false"},
@@ -133,3 +135,72 @@ def list_attachment_records(*, task_id: str) -> list[dict[str, Any]]:
     except _OFFLINE_ERRORS as exc:
         logger.warning("Base injoignable (liste pieces jointes), mode degrade: %s", exc)
         return []
+
+
+def remove_storage_objects(client: Any, storage_paths: list[str]) -> None:
+    """Supprime des objets du bucket PRIVE (best-effort mutualise, points 3 et 5).
+
+    Ne fait rien si la liste est vide. Les erreurs de CONNEXION (_OFFLINE_ERRORS) ne
+    sont PAS interceptees ici : elles remontent a l'appelant, qui decide du mode degrade
+    (ne pas supprimer la ligne DB tant que l'objet n'a pu etre purge -> pas d'orphelin).
+    """
+    if storage_paths:
+        client.storage.from_(ATTACHMENTS_BUCKET).remove(storage_paths)
+
+
+def list_storage_paths_for_tasks(client: Any, task_ids: list[str]) -> list[str]:
+    """Chemins Storage de toutes les pieces jointes d'un lot de taches (cascade projet).
+
+    Sert au point 3 : avant de supprimer les taches d'un projet, on collecte les objets
+    Storage a purger (sinon on perd les `storage_path` avec les lignes -> fichiers
+    orphelins). Renvoie une liste vide si aucune tache / aucune piece jointe.
+    """
+    if not task_ids:
+        return []
+    rows = (
+        client.table("task_attachments")
+        .select("storage_path")
+        .in_("task_id", task_ids)
+        .execute()
+        .data
+        or []
+    )
+    return [row["storage_path"] for row in rows if row.get("storage_path")]
+
+
+def delete_attachment_record(*, task_id: str, attachment_id: str) -> bool:
+    """Supprime une piece jointe (point 5) : purge l'objet Storage PUIS la ligne DB.
+
+    Ordre important : on lit d'abord le `storage_path` (scope par tache + id), on retire
+    l'objet du bucket, et SEULEMENT ensuite on supprime la ligne — aucun fichier
+    orphelin. Renvoie True si une ligne a ete supprimee, False si introuvable ou base /
+    Storage injoignable (mode degrade -> 404 cote route, rien n'a ete purge).
+    """
+    try:
+        client = get_supabase_client()
+        rows = (
+            client.table("task_attachments")
+            .select("storage_path")
+            .eq("id", attachment_id)
+            .eq("task_id", task_id)
+            .execute()
+            .data
+            or []
+        )
+        if not rows:
+            return False
+
+        remove_storage_objects(client, [rows[0]["storage_path"]])
+
+        deleted = (
+            client.table("task_attachments")
+            .delete()
+            .eq("id", attachment_id)
+            .eq("task_id", task_id)
+            .execute()
+            .data
+        )
+        return bool(deleted)
+    except _OFFLINE_ERRORS as exc:
+        logger.warning("Storage/base injoignable (suppression piece jointe), mode degrade: %s", exc)
+        return False

@@ -8,12 +8,20 @@ import { getBoardData } from "@/lib/api/board";
  * Server Component : charge les projets reels + les taches (pour le compteur par
  * projet) via l'API. Le bouton « Nouveau projet » ouvre un formulaire de creation
  * (Server Action) — il ne s'agit plus d'un placeholder.
+ *
+ * Le compteur par projet inclut les taches ACTIVES ET ARCHIVEES (deux chargements en
+ * parallele) : c'est le total EXACT que la suppression du projet supprimera (point 3),
+ * afin que la modale de confirmation quantifie fidelement l'impact irreversible.
  */
 export default async function ProjectsPage() {
-  const { projects, tasks } = await getBoardData();
+  const [active, archived] = await Promise.all([
+    getBoardData(),
+    getBoardData({ archived: true }),
+  ]);
+  const { projects } = active;
 
   const taskCountByProject = new Map<string, number>();
-  for (const task of tasks) {
+  for (const task of [...active.tasks, ...archived.tasks]) {
     if (task.projectId) {
       taskCountByProject.set(
         task.projectId,

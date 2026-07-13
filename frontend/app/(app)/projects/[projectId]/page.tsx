@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { EditProjectButton } from "@/components/projects/edit-project-button";
+import { NewTaskButton } from "@/components/tasks/new-task-button";
 import { TaskTable } from "@/components/tasks/task-table";
 import { getBoardData } from "@/lib/api/board";
 
@@ -16,7 +17,7 @@ export default async function ProjectDetailPage(
   props: PageProps<"/projects/[projectId]">,
 ) {
   const { projectId } = await props.params;
-  const { tasks, projects, profiles } = await getBoardData({ projectId });
+  const { tasks, projects, members } = await getBoardData({ projectId });
 
   const project = projects.find((p) => p.id === projectId);
   if (!project) notFound();
@@ -31,7 +32,15 @@ export default async function ProjectDetailPage(
             <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
           ) : null}
         </div>
-        <EditProjectButton project={project} />
+        {/* Point 5 : creation d'une tache avec le projet pre-rempli sur cette fiche. */}
+        <div className="flex items-center gap-2">
+          <NewTaskButton
+            projects={projects}
+            members={members}
+            initialProjectId={project.id}
+          />
+          <EditProjectButton project={project} />
+        </div>
       </header>
 
       {tasks.length === 0 ? (
@@ -39,7 +48,7 @@ export default async function ProjectDetailPage(
           Aucune tâche rattachée à ce projet.
         </div>
       ) : (
-        <TaskTable tasks={tasks} projects={projects} profiles={profiles} />
+        <TaskTable tasks={tasks} projects={projects} members={members} />
       )}
     </div>
   );

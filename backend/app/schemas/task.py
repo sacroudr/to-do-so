@@ -8,17 +8,15 @@ from pydantic import BaseModel, model_validator
 
 
 class TaskStatus(str, Enum):
-    # Refonte 5 -> 9 statuts (§4.3). Ordre = flux Kanban. « blocked » retire (migre vers
-    # « waiting »). Valeurs alignees sur frontend/lib/types/domain.ts et l'enum Postgres.
-    A_QUALIFIER = "a_qualifier"
+    # Reduction 9 -> 6 statuts (point 1). Ordre = flux Kanban. Retires : a_qualifier
+    # (-> a_planifier), waiting (-> todo), archive (-> done). Valeurs alignees sur
+    # frontend/lib/types/domain.ts et l'enum Postgres (migration task_status_6_states).
     A_PLANIFIER = "a_planifier"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
-    WAITING = "waiting"
     A_TESTER = "a_tester"
     A_CORRIGER = "a_corriger"
     DONE = "done"
-    ARCHIVE = "archive"
 
 
 class TaskPriority(str, Enum):
@@ -39,8 +37,9 @@ class TaskBase(BaseModel):
     # contrainte CHECK equivalente (migration).
     due_date: date | None = None
     due_date_text: str | None = None
-    # Defaut d'une nouvelle tache = premier statut du flux (« a qualifier »), §4.3.
-    statut: TaskStatus = TaskStatus.A_QUALIFIER
+    # Defaut d'une nouvelle tache = premier statut du flux (« a planifier »), point 1.
+    # Aligne sur le default de la colonne DB (migration task_status_6_states).
+    statut: TaskStatus = TaskStatus.A_PLANIFIER
     priorite: TaskPriority = TaskPriority.MEDIUM
     source: str | None = None
 
@@ -88,3 +87,7 @@ class Task(TaskBase):
     created_by: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    # Instant de passage a « done » (point 4) : alimente le filtre d'archive (done
+    # depuis > 10 min). Maintenu par le trigger DB set_completed_at ; null tant que la
+    # tache n'est pas terminee.
+    completed_at: str | None = None

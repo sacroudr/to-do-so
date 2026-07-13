@@ -15,3 +15,8 @@ export function pluralize(count: number, singular: string, plural: string): stri
 export function taskCountLabel(count: number): string {
   return `${count} ${pluralize(count, "tâche", "tâches")}`;
 }
+
+/** Libelle « N tâche archivée » / « N tâches archivées » (page Archive, point 2). */
+export function archivedTaskCountLabel(count: number): string {
+  return `${count} ${pluralize(count, "tâche archivée", "tâches archivées")}`;
+}

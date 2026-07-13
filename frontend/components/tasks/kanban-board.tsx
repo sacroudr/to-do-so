@@ -11,7 +11,7 @@ import { ActionError } from "@/components/ui/action-error";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
 import { TASK_STATUSES } from "@/lib/constants/task";
-import type { Profile, Project, Task, TaskStatus } from "@/lib/types/domain";
+import type { Project, Task, TaskStatus, TeamMember } from "@/lib/types/domain";
 
 /**
  * Vue Kanban (requirements.md §4.3).
@@ -26,11 +26,11 @@ const DRAG_MIME = "text/plain";
 export function KanbanBoard({
   tasks: tasksProp,
   projects,
-  profiles,
+  members,
 }: {
   tasks: Task[];
   projects: Project[];
-  profiles: Profile[];
+  members: TeamMember[];
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
@@ -106,7 +106,7 @@ export function KanbanBoard({
       <ActionError message={actionError} onDismiss={() => setActionError(null)} />
 
       {/*
-        9 statuts : rangee flex a DEFILEMENT HORIZONTAL fluide (plutot qu'une grille
+        6 statuts : rangee flex a DEFILEMENT HORIZONTAL fluide (plutot qu'une grille
         qui wrap et coupe les colonnes). Chaque colonne a une largeur fixe coherente
         (w-72 shrink-0). Le glisser-deposer fonctionne a l'identique.
       */}
@@ -186,7 +186,7 @@ export function KanbanBoard({
         mode="create"
         initialStatus={createStatus ?? undefined}
         projects={projects}
-        profiles={profiles}
+        members={members}
         onClose={() => setCreateStatus(null)}
       />
 
@@ -195,7 +195,7 @@ export function KanbanBoard({
         mode="edit"
         task={editingTask}
         projects={projects}
-        profiles={profiles}
+        members={members}
         onClose={() => setEditingTask(null)}
       />
 

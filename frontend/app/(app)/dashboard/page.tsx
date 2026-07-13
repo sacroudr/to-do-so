@@ -5,7 +5,7 @@ import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getBoardData } from "@/lib/api/board";
 import { TASK_STATUSES } from "@/lib/constants/task";
-import { taskCountLabel } from "@/lib/i18n/plural";
+import { memberFullName } from "@/lib/team/name";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -20,14 +20,10 @@ const MAX_UPCOMING = 6;
 
 function upcomingTasks(tasks: Task[]): Task[] {
   const today = new Date().toISOString().slice(0, 10);
-  // Etats terminaux (termine / archive) exclus des echeances a venir.
+  // Etat terminal (termine) exclu des echeances a venir.
   return tasks
     .filter(
-      (t) =>
-        t.dueDate.date &&
-        t.dueDate.date >= today &&
-        t.statut !== "done" &&
-        t.statut !== "archive",
+      (t) => t.dueDate.date && t.dueDate.date >= today && t.statut !== "done",
     )
     .sort((a, b) => (a.dueDate.date as string).localeCompare(b.dueDate.date as string))
     .slice(0, MAX_UPCOMING);
@@ -41,7 +37,7 @@ function TaskLine({ task }: { task: Task }) {
         <p className="truncate text-xs text-muted-foreground">
           {task.project?.nom ?? "Sans projet"}
           {task.assignees.length > 0
-            ? ` · ${task.assignees.map((a) => a.nom).join(", ")}`
+            ? ` · ${task.assignees.map(memberFullName).join(", ")}`
             : ""}
         </p>
       </div>
@@ -62,8 +58,9 @@ export default async function DashboardPage() {
   }
 
   const upcoming = upcomingTasks(tasks);
-  // Le statut « bloque » a ete retire (refonte 5 -> 9) ; on met en avant « En attente ».
-  const waiting = tasks.filter((t) => t.statut === "waiting");
+  // Les statuts « en attente » / « archive » ont ete retires (reduction 9 -> 6) ; on met
+  // en avant le travail actif « En cours ».
+  const inProgress = tasks.filter((t) => t.statut === "in_progress");
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -107,18 +104,18 @@ export default async function DashboardPage() {
 
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="text-sm font-semibold text-foreground">
-            Tâches en attente
-            {waiting.length > 0 ? (
-              <span className="ml-2 rounded-full bg-status-waiting/15 px-2 py-0.5 text-xs text-status-waiting">
-                {waiting.length}
+            Tâches en cours
+            {inProgress.length > 0 ? (
+              <span className="ml-2 rounded-full bg-status-progress/15 px-2 py-0.5 text-xs text-status-progress">
+                {inProgress.length}
               </span>
             ) : null}
           </h2>
-          {waiting.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Aucune tâche en attente.</p>
+          {inProgress.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Aucune tâche en cours.</p>
           ) : (
             <ul className="mt-2">
-              {waiting.map((task) => (
+              {inProgress.map((task) => (
                 <TaskLine key={task.id} task={task} />
               ))}
             </ul>

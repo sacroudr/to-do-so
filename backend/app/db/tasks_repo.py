@@ -23,6 +23,7 @@ les erreurs applicatives reelles : SEULES les erreurs de connexion sont intercep
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, TypeVar
 from uuid import uuid4
 
@@ -41,8 +42,20 @@ _OFFLINE_ERRORS = (httpx.TransportError, ConnectionError, OSError)
 # pour rester explicite et resilient a d'eventuelles colonnes internes).
 _TASK_COLUMNS = (
     "id, titre, description, project_id, due_date, due_date_text, "
-    "statut, priorite, source, created_by, created_at, updated_at"
+    "statut, priorite, source, created_by, created_at, updated_at, completed_at"
 )
+
+# Fenetre d'archivage (point 4) : une tache « done » depuis plus de ce delai est
+# ARCHIVEE -> masquee des vues actives (Kanban / Liste / dashboard) et visible seulement
+# dans la page Archive. Le filtre est DYNAMIQUE (calcule a la lecture via now()), pas un
+# flag statique.
+ARCHIVE_DELAY_MINUTES = 10
+
+
+def _archive_cutoff_iso() -> str:
+    """Instant (ISO 8601 UTC) avant lequel une tache « done » est consideree archivee."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=ARCHIVE_DELAY_MINUTES)
+    return cutoff.isoformat()
 
 
 def _run_or_offline(operation: Callable[[], T], *, offline_value: T) -> T:
@@ -95,10 +108,13 @@ def _fetch_subtask_counts(
     return counts
 
 
-def list_task_records(
-    *, assignee_id: str | None = None, project_id: str | None = None
+def _list_task_records(
+    *, assignee_id: str | None, project_id: str | None, archived: bool
 ) -> list[dict[str, Any]]:
-    """Liste les taches, filtrees optionnellement par responsable et/ou projet (§4.6)."""
+    """Corps commun des listes de taches (vue active OU page Archive, point 4).
+
+    `archived=False` : exclut les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES).
+    `archived=True`  : ne renvoie QUE les taches archivees. Filtre DYNAMIQUE (now())."""
 
     def _query() -> list[dict[str, Any]]:
         client = get_supabase_client()
@@ -122,6 +138,18 @@ def list_task_records(
         if allowed_task_ids is not None:
             query = query.in_("id", allowed_task_ids)
 
+        cutoff = _archive_cutoff_iso()
+        if archived:
+            # Page Archive : uniquement les archivees (done ET terminee avant le seuil).
+            query = query.eq("statut", "done").lt("completed_at", cutoff)
+        else:
+            # Vue active : tout SAUF les archivees. Une tache reste active si elle n'est
+            # pas 'done', OU terminee depuis moins de ARCHIVE_DELAY_MINUTES, OU sans
+            # completed_at (juste passee a done / donnee historique sans horodatage).
+            query = query.or_(
+                f"statut.neq.done,completed_at.gte.{cutoff},completed_at.is.null"
+            )
+
         rows = query.order("created_at", desc=False).execute().data or []
 
         # Compteurs de checklist en une seule requete groupee (evite le N+1, §badge).
@@ -140,6 +168,30 @@ def list_task_records(
         return enriched
 
     return _run_or_offline(_query, offline_value=[])
+
+
+def list_task_records(
+    *, assignee_id: str | None = None, project_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Liste les taches ACTIVES, filtrees optionnellement par responsable / projet (§4.6).
+
+    Exclut les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES, point 4) : elles
+    ne remontent ni dans le Kanban ni dans la Liste par defaut, seulement dans Archive.
+    """
+    return _list_task_records(
+        assignee_id=assignee_id, project_id=project_id, archived=False
+    )
+
+
+def list_archived_task_records(
+    *, assignee_id: str | None = None, project_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Liste EXACTEMENT les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES, point 4).
+
+    Alimente la page Archive. Memes filtres optionnels responsable / projet (§4.6)."""
+    return _list_task_records(
+        assignee_id=assignee_id, project_id=project_id, archived=True
+    )
 
 
 def create_task_record(data: dict[str, Any], created_by: str) -> dict[str, Any]:

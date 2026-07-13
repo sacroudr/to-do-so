@@ -1,9 +1,12 @@
 "use client";
 
-import { Download, Loader2, Paperclip, Upload } from "lucide-react";
+import { Check, Download, Loader2, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { listAttachmentsAction } from "@/lib/api/attachment-actions";
+import {
+  deleteAttachmentAction,
+  listAttachmentsAction,
+} from "@/lib/api/attachment-actions";
 import { MAX_ATTACHMENT_BYTES } from "@/lib/constants/attachment";
 import { apiEnv } from "@/lib/env";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -35,6 +38,11 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Suppression avec confirmation LEGERE inline (pas de modale bloquante, meme niveau de
+  // friction que la suppression d'une sous-tache) : premier clic -> etat de confirmation
+  // sur la ligne ; `deletingId` desactive les controles pendant la requete.
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Chargement paresseux a l'ouverture (`loading` demarre a `true`). On ne declenche
   // pas de setState synchrone dans l'effet : l'etat n'est mis a jour qu'apres la
@@ -113,6 +121,25 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
     }
   }
 
+  async function handleDelete(attachmentId: string): Promise<void> {
+    setError(null);
+    setDeletingId(attachmentId);
+    try {
+      const result = await deleteAttachmentAction(taskId, attachmentId);
+      if (!result.ok) {
+        setError(result.error ?? "La suppression de la pièce jointe a échoué.");
+        return;
+      }
+      // Apres succes : on rafraichit la liste (le backend a purge Storage + ligne).
+      setConfirmingId(null);
+      setItems(await listAttachmentsAction(taskId));
+    } catch {
+      setError("La suppression de la pièce jointe a échoué.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -145,33 +172,79 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
         <p className="text-xs text-muted-foreground">Aucune pièce jointe.</p>
       ) : (
         <ul className="space-y-1">
-          {items.map((attachment) => (
-            <li
-              key={attachment.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {attachment.fileName}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {formatDate(attachment.createdAt)}
-                  {attachment.uploadedByName ? ` · ${attachment.uploadedByName}` : ""}
-                </p>
-              </div>
-              {attachment.signedUrl ? (
-                <a
-                  href={attachment.signedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Télécharger ${attachment.fileName}`}
-                  className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
-                >
-                  <Download className="size-4" />
-                </a>
-              ) : null}
-            </li>
-          ))}
+          {items.map((attachment) => {
+            const confirming = confirmingId === attachment.id;
+            const deleting = deletingId === attachment.id;
+            return (
+              <li
+                key={attachment.id}
+                className="group flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {attachment.fileName}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {formatDate(attachment.createdAt)}
+                    {attachment.uploadedByName ? ` · ${attachment.uploadedByName}` : ""}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  {attachment.signedUrl ? (
+                    <a
+                      href={attachment.signedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Télécharger ${attachment.fileName}`}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                    >
+                      <Download className="size-4" />
+                    </a>
+                  ) : null}
+
+                  {confirming ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(attachment.id)}
+                        disabled={deleting}
+                        aria-label={`Confirmer la suppression de ${attachment.fileName}`}
+                        className="rounded-md p-1 text-danger transition-colors hover:bg-danger/10 disabled:opacity-60"
+                      >
+                        {deleting ? (
+                          <Loader2 className="size-4 animate-spin" aria-hidden />
+                        ) : (
+                          <Check className="size-4" aria-hidden />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        disabled={deleting}
+                        aria-label="Annuler la suppression"
+                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-60"
+                      >
+                        <X className="size-4" aria-hidden />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setConfirmingId(attachment.id);
+                      }}
+                      aria-label={`Supprimer ${attachment.fileName}`}
+                      className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

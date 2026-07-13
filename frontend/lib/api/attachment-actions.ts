@@ -62,3 +62,37 @@ export async function listAttachmentsAction(taskId: string): Promise<TaskAttachm
     return [];
   }
 }
+
+export interface AttachmentActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Supprime une piece jointe (point 5). Contrairement a l'upload (fetch direct
+ * navigateur -> backend a cause du plafond de corps de ~4,5 Mo des Serverless Functions),
+ * la suppression est une petite requete sans corps : une Server Action convient. Le
+ * backend purge l'objet Storage PUIS la ligne. Aucune revalidation de cache : les pieces
+ * jointes ne pilotent aucun badge (le composant rafraichit sa propre liste apres succes).
+ */
+export async function deleteAttachmentAction(
+  taskId: string,
+  attachmentId: string,
+): Promise<AttachmentActionResult> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(
+      `${apiEnv.baseUrl}/api/v1/tasks/${taskId}/attachments/${attachmentId}`,
+      {
+        method: "DELETE",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      },
+    );
+    if (!response.ok) {
+      return { ok: false, error: "La suppression de la pièce jointe a échoué." };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "La suppression de la pièce jointe a échoué." };
+  }
+}

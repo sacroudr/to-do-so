@@ -6,27 +6,37 @@
  * doivent rester la source de verite des formes de donnees manipulees par l'UI.
  */
 
-/** Statuts d'une tache — colonnes de la vue Kanban (§4.3), dans l'ordre du flux. */
+/** Statuts d'une tache — colonnes de la vue Kanban (§4.3), dans l'ordre du flux.
+ *  Reduction 9 -> 6 (point 1) : retires a_qualifier, waiting, archive. */
 export type TaskStatus =
-  | "a_qualifier"
   | "a_planifier"
   | "todo"
   | "in_progress"
-  | "waiting"
   | "a_tester"
   | "a_corriger"
-  | "done"
-  | "archive";
+  | "done";
 
 /** Niveaux de priorite d'une tache (§4.2). */
 export type TaskPriority = "low" | "medium" | "high";
 
-/** Table `profiles` : comptes membres de l'equipe (§5). */
+/** Table `profiles` : comptes membres de l'equipe (§5). Sert a l'IDENTITE connectee
+ *  (sidebar, page Profil). N'est PLUS la source des responsables (voir TeamMember). */
 export interface Profile {
   id: string;
   nom: string;
   email: string;
   avatar: string | null;
+}
+
+/**
+ * Table `team_members` : personnes assignables a une tache (point 2), DECOUPLEES des
+ * comptes Auth (`profiles`). Uniquement un nom (prenom + nom), pas d'email ni d'avatar :
+ * qui peut se connecter (Profile) != qui peut etre responsable (TeamMember).
+ */
+export interface TeamMember {
+  id: string;
+  firstName: string;
+  lastName: string;
 }
 
 /** Table `projects` : projets / thematiques regroupant des taches (§5). */
@@ -92,8 +102,9 @@ export interface Task {
   description: string | null;
   projectId: string | null;
   project?: Project | null;
-  /** Responsables (relation multiple via `task_assignees`, §5). */
-  assignees: Profile[];
+  /** Responsables (relation multiple via `task_assignees`, §5) — desormais des
+   *  team_members (points 2 et 3), plus des comptes. */
+  assignees: TeamMember[];
   dueDate: TaskDueDate;
   statut: TaskStatus;
   priorite: TaskPriority;
@@ -103,4 +114,7 @@ export interface Task {
   subtaskProgress: SubtaskProgress;
   createdAt: string;
   updatedAt: string;
+  /** Instant de passage a « done » (point 4) ; null tant que non terminee. Sert au
+   *  filtre d'archive (done depuis > 10 min). */
+  completedAt: string | null;
 }

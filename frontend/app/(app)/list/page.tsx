@@ -22,15 +22,15 @@ export default async function ListPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const { tasks, projects, profiles } = await getBoardData({
+  const { tasks, projects, members } = await getBoardData({
     assigneeId: firstValue(params.assignee),
     projectId: firstValue(params.project),
   });
 
   return (
     <div className="space-y-6">
-      <BoardHeader title="Vue Liste" projects={projects} profiles={profiles} />
-      <TaskTable tasks={tasks} projects={projects} profiles={profiles} />
+      <BoardHeader title="Vue Liste" projects={projects} members={members} />
+      <TaskTable tasks={tasks} projects={projects} members={members} />
     </div>
   );
 }

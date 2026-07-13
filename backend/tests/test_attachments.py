@@ -18,6 +18,7 @@ ATTACH_PATH = f"/api/v1/tasks/{TASK_ID}/attachments"
 
 CREATE_SEAM = "app.api.v1.routes.attachments.create_attachment_record"
 LIST_SEAM = "app.api.v1.routes.attachments.list_attachment_records"
+DELETE_SEAM = "app.api.v1.routes.attachments.delete_attachment_record"
 MAX_BYTES_CONST = "app.api.v1.routes.attachments.MAX_ATTACHMENT_BYTES"
 
 # En-tete PDF valide minimal (commence par la signature magique « %PDF- »).
@@ -179,3 +180,39 @@ def test_should_list_attachments(client, auth_headers, monkeypatch):
     assert captured["task_id"] == TASK_ID
     assert [a["file_name"] for a in body] == ["compte-rendu.pdf", "annexe.pdf"]
     assert all(a["signed_url"].startswith("https://") for a in body)
+
+
+# ===========================================================================
+# Suppression (point 5) — objet Storage + ligne DB, delegue au repo
+# ===========================================================================
+def test_should_require_auth_to_delete(client):
+    """GIVEN aucun token WHEN DELETE une piece jointe THEN 401."""
+    response = client.delete(f"{ATTACH_PATH}/att-1")
+    assert response.status_code == 401
+
+
+def test_should_delete_attachment(client, auth_headers, monkeypatch):
+    """GIVEN une piece jointe existante WHEN DELETE THEN 204, la couche donnees recoit la
+    tache ET l'id de la piece jointe (suppression scopee par tache).
+    """
+    captured: dict[str, Any] = {}
+
+    def _delete(*, task_id: str, attachment_id: str) -> bool:
+        captured.update({"task_id": task_id, "attachment_id": attachment_id})
+        return True
+
+    monkeypatch.setattr(DELETE_SEAM, _delete, raising=False)
+
+    response = client.delete(f"{ATTACH_PATH}/att-1", headers=auth_headers)
+
+    assert response.status_code == 204
+    assert captured == {"task_id": TASK_ID, "attachment_id": "att-1"}
+
+
+def test_should_return_404_when_deleting_missing_attachment(client, auth_headers, monkeypatch):
+    """GIVEN une piece jointe introuvable (le repo renvoie False) WHEN DELETE THEN 404."""
+    monkeypatch.setattr(DELETE_SEAM, lambda **_: False, raising=False)
+
+    response = client.delete(f"{ATTACH_PATH}/inconnu", headers=auth_headers)
+
+    assert response.status_code == 404

@@ -5,6 +5,7 @@ import { DueDate } from "@/components/ui/due-date";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { SubtaskProgress } from "@/components/ui/subtask-progress";
 import { PRIORITY_BY_VALUE } from "@/lib/constants/task";
+import { memberFullName } from "@/lib/team/name";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -37,7 +38,7 @@ export function TaskCard({
   onOpenDetail,
 }: TaskCardProps) {
   const priorityAccent = PRIORITY_BY_VALUE[task.priorite].accentClassName;
-  const assigneeNames = task.assignees.map((a) => a.nom).join(", ");
+  const assigneeNames = task.assignees.map(memberFullName).join(", ");
 
   // Ouvre le detail au clavier UNIQUEMENT si le focus est sur la carte elle-meme
   // (pas sur un bouton interne), pour ne pas capturer Entree/Espace des actions.

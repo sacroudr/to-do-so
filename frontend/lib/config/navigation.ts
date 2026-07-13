@@ -14,8 +14,6 @@ export interface NavItem {
   href: string;
   /** Nom d'icone (a mapper vers une librairie d'icones lors de l'implementation UI). */
   icon: string;
-  /** false = section prevue mais desactivee en phase 1 (§2.2). */
-  enabled: boolean;
 }
 
 export interface NavSection {
@@ -28,27 +26,17 @@ export interface NavSection {
 export const PRIMARY_NAV: NavSection = {
   title: "Espace de travail",
   items: [
-    { label: "Tableau de bord", href: "/dashboard", icon: "layout-dashboard", enabled: true },
-    { label: "Vue Kanban", href: "/kanban", icon: "columns", enabled: true },
-    { label: "Vue Liste", href: "/list", icon: "list", enabled: true },
-    { label: "Projets", href: "/projects", icon: "folder", enabled: true },
-  ],
-};
-
-/**
- * Sections envisagees (§2.2). Presentes mais desactivees : elles reservent la place
- * dans la navigation et montrent l'intention d'evolution sans etre routables en phase 1.
- */
-export const FUTURE_NAV: NavSection = {
-  title: "À venir",
-  items: [
-    { label: "Notifications", href: "/notifications", icon: "bell", enabled: false },
-    { label: "Statistiques", href: "/stats", icon: "bar-chart", enabled: false },
-    { label: "Administration", href: "/admin", icon: "shield", enabled: false },
+    { label: "Tableau de bord", href: "/dashboard", icon: "layout-dashboard" },
+    { label: "Vue Kanban", href: "/kanban", icon: "columns" },
+    { label: "Vue Liste", href: "/list", icon: "list" },
+    { label: "Projets", href: "/projects", icon: "folder" },
+    // Point 2 : personnes assignables (team_members) ; page Archive (taches terminees).
+    { label: "Utilisateurs", href: "/users", icon: "users" },
+    { label: "Archive", href: "/archive", icon: "archive" },
   ],
 };
 
 /** Section basse : profil + deconnexion (§4.7). */
 export const USER_NAV: NavSection = {
-  items: [{ label: "Profil", href: "/profile", icon: "user", enabled: true }],
+  items: [{ label: "Profil", href: "/profile", icon: "user" }],
 };

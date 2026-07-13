@@ -15,6 +15,7 @@ from app.core.errors import NotFoundError
 from app.db.tasks_repo import (
     create_task_record,
     delete_task_record,
+    list_archived_task_records,
     list_task_records,
     update_task_record,
 )
@@ -28,10 +29,20 @@ def list_tasks(
     user: CurrentUser,
     assignee: str | None = Query(None, description="Filtre par responsable (uuid)"),
     project: str | None = Query(None, description="Filtre par projet (uuid)"),
+    archived: bool = Query(
+        False, description="true = uniquement les taches archivees (done > 10 min)"
+    ),
 ) -> list[Task]:
-    """Liste les taches de l'equipe, filtrees par responsable / projet (§4.6)."""
+    """Liste les taches de l'equipe, filtrees par responsable / projet (§4.6).
+
+    Par defaut : vue ACTIVE (exclut les taches archivees, point 4). `archived=true`
+    renvoie EXACTEMENT les taches archivees (page Archive).
+    """
     _ = user
-    records = list_task_records(assignee_id=assignee, project_id=project)
+    if archived:
+        records = list_archived_task_records(assignee_id=assignee, project_id=project)
+    else:
+        records = list_task_records(assignee_id=assignee, project_id=project)
     return [Task(**record) for record in records]
 
 

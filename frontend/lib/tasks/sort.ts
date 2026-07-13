@@ -5,9 +5,8 @@
  *
  * Ordres de reference :
  *   - priorite : low < medium < high (ordre de TASK_PRIORITIES)
- *   - statut   : ordre des colonnes Kanban (ordre de TASK_STATUSES) -> a_qualifier <
- *                a_planifier < todo < in_progress < waiting < a_tester < a_corriger <
- *                done < archive
+ *   - statut   : ordre des colonnes Kanban (ordre de TASK_STATUSES) -> a_planifier <
+ *                todo < in_progress < a_tester < a_corriger < done (reduction 9 -> 6)
  *   - responsable : alphabetique (locale fr) sur le nom du 1er responsable
  *   - echeance (regle confirmee, §4.4) :
  *       1. les taches avec une DATE precise (`dueDate.date`) d'abord, triees par date
@@ -17,6 +16,7 @@
  *   Le sens `desc` inverse l'ordre croissant obtenu (l'ensemble est renverse).
  */
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants/task";
+import { memberFullName } from "@/lib/team/name";
 import type { Task } from "@/lib/types/domain";
 
 export type TaskSortKey = "dueDate" | "priorite" | "statut" | "assignee";
@@ -35,8 +35,8 @@ function compareAscending(a: Task, b: Task, key: TaskSortKey): number {
       return STATUS_ORDER.indexOf(a.statut) - STATUS_ORDER.indexOf(b.statut);
 
     case "assignee": {
-      const nameA = a.assignees[0]?.nom ?? "";
-      const nameB = b.assignees[0]?.nom ?? "";
+      const nameA = a.assignees[0] ? memberFullName(a.assignees[0]) : "";
+      const nameB = b.assignees[0] ? memberFullName(b.assignees[0]) : "";
       return nameA.localeCompare(nameB, "fr");
     }
 

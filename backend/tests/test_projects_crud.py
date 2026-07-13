@@ -12,6 +12,7 @@ from typing import Any
 PROJECTS_PATH = "/api/v1/projects"
 CREATE_SEAM = "app.api.v1.routes.projects.create_project_record"
 UPDATE_SEAM = "app.api.v1.routes.projects.update_project_record"
+DELETE_SEAM = "app.api.v1.routes.projects.delete_project_record"
 
 
 def test_should_require_auth_to_create_project(client):
@@ -116,5 +117,42 @@ def test_should_return_404_when_updating_unknown_project(client, auth_headers, m
     response = client.patch(
         f"{PROJECTS_PATH}/inconnu", json={"nom": "Peu importe"}, headers=auth_headers
     )
+
+    assert response.status_code == 404
+
+
+# ===========================================================================
+# Suppression (point 3) — cascade applicative deleguee au repo
+# ===========================================================================
+def test_should_require_auth_to_delete_project(client):
+    """GIVEN aucun token WHEN DELETE /projects/{id} THEN 401."""
+    response = client.delete(f"{PROJECTS_PATH}/p1")
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "authentication_error"
+
+
+def test_should_delete_project(client, auth_headers, monkeypatch):
+    """GIVEN un projet existant WHEN DELETE /projects/{id} THEN 204, la couche donnees
+    recoit le bon id (l'orchestration de la cascade est deleguee au repo, §5).
+    """
+    captured: dict[str, Any] = {}
+
+    def _delete(*, project_id: str) -> bool:
+        captured["project_id"] = project_id
+        return True
+
+    monkeypatch.setattr(DELETE_SEAM, _delete, raising=False)
+
+    response = client.delete(f"{PROJECTS_PATH}/p1", headers=auth_headers)
+
+    assert response.status_code == 204
+    assert captured == {"project_id": "p1"}
+
+
+def test_should_return_404_when_deleting_unknown_project(client, auth_headers, monkeypatch):
+    """GIVEN un id de projet inexistant (le repo renvoie False) WHEN DELETE THEN 404."""
+    monkeypatch.setattr(DELETE_SEAM, lambda **_: False, raising=False)
+
+    response = client.delete(f"{PROJECTS_PATH}/inconnu", headers=auth_headers)
 
     assert response.status_code == 404

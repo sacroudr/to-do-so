@@ -16,7 +16,7 @@ const URGENCY: Record<
   { className: string; Icon: LucideIcon | null; title: string | null }
 > = {
   overdue: { className: "text-danger font-semibold", Icon: AlertTriangle, title: "En retard" },
-  soon: { className: "text-status-waiting font-medium", Icon: Clock, title: "Échéance imminente" },
+  soon: { className: "text-warning font-medium", Icon: Clock, title: "Échéance imminente" },
   normal: { className: "text-muted-foreground", Icon: null, title: null },
   none: { className: "text-muted-foreground", Icon: null, title: null },
 };

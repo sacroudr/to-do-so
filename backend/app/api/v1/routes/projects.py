@@ -5,12 +5,13 @@ La couche route reste fine : l'acces base est delegue a `app.db.projects_repo`
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentUser
 from app.core.errors import NotFoundError
 from app.db.projects_repo import (
     create_project_record,
+    delete_project_record,
     list_project_records,
     update_project_record,
 )
@@ -45,3 +46,17 @@ def update_project(project_id: str, payload: ProjectUpdate, user: CurrentUser) -
     if record is None:
         raise NotFoundError("Projet introuvable.")
     return Project(**record)
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project(project_id: str, user: CurrentUser) -> Response:
+    """Supprime un projet ET ses taches en cascade applicative ; 404 si introuvable (§5).
+
+    Voir `delete_project_record` : purge des objets Storage des pieces jointes, puis
+    suppression des taches (cascade sous-taches + lignes pieces jointes), puis du projet.
+    """
+    _ = user
+    deleted = delete_project_record(project_id=project_id)
+    if not deleted:
+        raise NotFoundError("Projet introuvable.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

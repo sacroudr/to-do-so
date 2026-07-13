@@ -1,23 +1,21 @@
 "use client";
 
 import {
-  BarChart3,
-  Bell,
+  Archive,
   Columns3,
   Folder,
   LayoutDashboard,
   List,
   ListChecks,
   LogOut,
-  Shield,
   User,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
-  FUTURE_NAV,
   PRIMARY_NAV,
   USER_NAV,
   type NavItem,
@@ -39,9 +37,8 @@ const ICONS: Record<string, LucideIcon> = {
   columns: Columns3,
   list: List,
   folder: Folder,
-  bell: Bell,
-  "bar-chart": BarChart3,
-  shield: Shield,
+  users: Users,
+  archive: Archive,
   user: User,
 };
 
@@ -54,22 +51,6 @@ const NAV_BASE =
   "group/link relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors";
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  if (!item.enabled) {
-    return (
-      <span
-        className={`${NAV_BASE} cursor-not-allowed text-muted-foreground/50`}
-        title="Fonctionnalité à venir"
-        aria-disabled="true"
-      >
-        <NavIcon name={item.icon} />
-        <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-          bientôt
-        </span>
-      </span>
-    );
-  }
-
   return (
     <Link
       href={item.href}
@@ -142,7 +123,6 @@ export function Sidebar({ user }: { user?: Profile | null }) {
 
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 pb-4">
         <NavGroup section={PRIMARY_NAV} isActive={isActive} />
-        <NavGroup section={FUTURE_NAV} isActive={isActive} />
       </nav>
 
       <div className="border-t border-border p-3">

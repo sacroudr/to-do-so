@@ -13,7 +13,8 @@ import {
 } from "@/lib/api/actions";
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants/task";
 import { getDueKind } from "@/lib/tasks/due";
-import type { Profile, Project, Task, TaskPriority, TaskStatus } from "@/lib/types/domain";
+import { memberFullName } from "@/lib/team/name";
+import type { Project, Task, TaskPriority, TaskStatus, TeamMember } from "@/lib/types/domain";
 
 /**
  * Formulaire de creation / edition d'une tache (requirements.md §4.2).
@@ -28,8 +29,10 @@ export interface TaskFormDialogProps {
   task?: Task | null;
   /** Statut pre-rempli en mode creation (ex. colonne Kanban d'origine, §4.3). */
   initialStatus?: TaskStatus;
+  /** Projet pre-rempli en mode creation (ex. fiche projet, point 5). */
+  initialProjectId?: string;
   projects: Project[];
-  profiles: Profile[];
+  members: TeamMember[];
   onClose: () => void;
 }
 
@@ -49,12 +52,16 @@ interface FormState {
   assigneeIds: string[];
 }
 
-function initialState(task?: Task | null, initialStatus?: TaskStatus): FormState {
+function initialState(
+  task?: Task | null,
+  initialStatus?: TaskStatus,
+  initialProjectId?: string,
+): FormState {
   const kind = task ? getDueKind(task.dueDate) : "none";
   return {
     titre: task?.titre ?? "",
     description: task?.description ?? "",
-    projectId: task?.projectId ?? "",
+    projectId: task?.projectId ?? initialProjectId ?? "",
     dueKind: kind === "text" ? "text" : "date",
     dueDate: task?.dueDate.date ?? "",
     dueText: task?.dueDate.text ?? "",
@@ -73,24 +80,28 @@ export function TaskFormDialog({
   mode,
   task,
   initialStatus,
+  initialProjectId,
   projects,
-  profiles,
+  members,
   onClose,
 }: TaskFormDialogProps) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(() => initialState(task, initialStatus));
+  const [form, setForm] = useState<FormState>(() =>
+    initialState(task, initialStatus, initialProjectId),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Reinitialise le formulaire a chaque ouverture / changement de tache cible OU de
-  // statut initial (creation rapide depuis une colonne Kanban §4.3), via le pattern
-  // « ajustement d'etat au rendu » (recommande par React plutot qu'un effet).
-  const formKey = `${open}:${task?.id ?? "new"}:${initialStatus ?? ""}`;
+  // statut / projet initial (creation rapide depuis une colonne Kanban §4.3 ou une fiche
+  // projet point 5), via le pattern « ajustement d'etat au rendu » (recommande par React
+  // plutot qu'un effet).
+  const formKey = `${open}:${task?.id ?? "new"}:${initialStatus ?? ""}:${initialProjectId ?? ""}`;
   const [renderedKey, setRenderedKey] = useState(formKey);
   if (formKey !== renderedKey) {
     setRenderedKey(formKey);
     if (open) {
-      setForm(initialState(task, initialStatus));
+      setForm(initialState(task, initialStatus, initialProjectId));
       setError(null);
     }
   }
@@ -305,18 +316,18 @@ export function TaskFormDialog({
           <div className="space-y-1">
             <span className="text-sm font-medium">Responsables</span>
             <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-              {profiles.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">Aucun membre.</p>
+              {members.length === 0 ? (
+                <p className="px-1 text-xs text-muted-foreground">Aucun utilisateur.</p>
               ) : (
-                profiles.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 px-1 py-0.5 text-sm">
+                members.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 px-1 py-0.5 text-sm">
                     <input
                       type="checkbox"
-                      checked={form.assigneeIds.includes(p.id)}
-                      onChange={() => toggleAssignee(p.id)}
+                      checked={form.assigneeIds.includes(m.id)}
+                      onChange={() => toggleAssignee(m.id)}
                       className="accent-primary"
                     />
-                    {p.nom}
+                    {memberFullName(m)}
                   </label>
                 ))
               )}

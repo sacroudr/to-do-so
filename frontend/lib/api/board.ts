@@ -1,19 +1,22 @@
 /**
- * Chargement des donnees du tableau (Kanban §4.3 / Liste §4.4) depuis l'API FastAPI.
+ * Chargement des donnees du tableau (Kanban §4.3 / Liste §4.4 / Archive point 4) depuis
+ * l'API FastAPI.
  *
  * Fonctions SERVEUR (utilisent `getAccessToken`, qui lit les cookies) : a appeler
  * depuis des Server Components. Elles recuperent les DTO bruts de l'API, puis
  * resolvent les relations (projet, responsables) en objets du domaine (`Task`) pour
  * l'affichage — l'API ne renvoyant que des identifiants (`project_id`, `assignee_ids`).
+ *
+ * Les responsables sont desormais des `team_members` (points 2 et 3), plus des comptes.
  */
 import { apiFetch } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/supabase/server";
 import type {
-  Profile,
   Project,
   Task,
   TaskPriority,
   TaskStatus,
+  TeamMember,
 } from "@/lib/types/domain";
 
 /** Forme brute d'une tache telle que renvoyee par l'API (`schemas.task.Task`). */
@@ -34,39 +37,56 @@ export interface TaskDTO {
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
+  /** Instant de passage a « done » (point 4) ; null tant que non terminee. */
+  completed_at: string | null;
 }
 
-/** Filtres optionnels par responsable / projet (§4.6). */
+/** Forme brute d'une personne assignable telle que renvoyee par l'API (`TeamMember`). */
+export interface TeamMemberDTO {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+/** Filtres optionnels par responsable / projet (§4.6) + archive (point 4). */
 export interface TaskFilters {
   assigneeId?: string | null;
   projectId?: string | null;
+  /** true = ne charger QUE les taches archivees (done depuis > 10 min). Page Archive. */
+  archived?: boolean;
 }
 
-/** Ensemble des donnees necessaires aux deux vues (taches enrichies + referentiels). */
+/** Ensemble des donnees necessaires aux vues (taches enrichies + referentiels). */
 export interface BoardData {
   tasks: Task[];
   projects: Project[];
-  profiles: Profile[];
+  /** Personnes assignables (team_members) pour selecteur / filtre responsable. */
+  members: TeamMember[];
+}
+
+function toMember(dto: TeamMemberDTO): TeamMember {
+  return { id: dto.id, firstName: dto.first_name, lastName: dto.last_name };
 }
 
 function buildTasksQuery(filters: TaskFilters): string {
   const params = new URLSearchParams();
   if (filters.assigneeId) params.set("assignee", filters.assigneeId);
   if (filters.projectId) params.set("project", filters.projectId);
+  if (filters.archived) params.set("archived", "true");
   const query = params.toString();
   return query ? `?${query}` : "";
 }
 
-/** Resout un DTO en `Task` du domaine a l'aide des referentiels projets / profils. */
+/** Resout un DTO en `Task` du domaine a l'aide des referentiels projets / responsables. */
 function toTask(
   dto: TaskDTO,
   projectsById: Map<string, Project>,
-  profilesById: Map<string, Profile>,
+  membersById: Map<string, TeamMember>,
 ): Task {
   const project = dto.project_id ? projectsById.get(dto.project_id) ?? null : null;
   const assignees = dto.assignee_ids
-    .map((id) => profilesById.get(id))
-    .filter((p): p is Profile => p !== undefined);
+    .map((id) => membersById.get(id))
+    .filter((m): m is TeamMember => m !== undefined);
 
   return {
     id: dto.id,
@@ -85,25 +105,28 @@ function toTask(
     },
     createdAt: dto.created_at ?? "",
     updatedAt: dto.updated_at ?? "",
+    completedAt: dto.completed_at ?? null,
   };
 }
 
 /**
- * Charge taches (filtrees §4.6), projets et profils en parallele, puis enrichit les
- * taches. Toutes les vues consomment cette meme source pour rester coherentes.
+ * Charge taches (filtrees §4.6 / archive point 4), projets et responsables en parallele,
+ * puis enrichit les taches. Toutes les vues consomment cette meme source pour rester
+ * coherentes.
  */
 export async function getBoardData(filters: TaskFilters = {}): Promise<BoardData> {
   const accessToken = await getAccessToken();
 
-  const [taskDtos, projects, profiles] = await Promise.all([
+  const [taskDtos, projects, memberDtos] = await Promise.all([
     apiFetch<TaskDTO[]>(`/api/v1/tasks${buildTasksQuery(filters)}`, { accessToken }),
     apiFetch<Project[]>("/api/v1/projects", { accessToken }),
-    apiFetch<Profile[]>("/api/v1/profiles", { accessToken }),
+    apiFetch<TeamMemberDTO[]>("/api/v1/team-members", { accessToken }),
   ]);
 
+  const members = memberDtos.map(toMember);
   const projectsById = new Map(projects.map((p) => [p.id, p]));
-  const profilesById = new Map(profiles.map((p) => [p.id, p]));
+  const membersById = new Map(members.map((m) => [m.id, m]));
 
-  const tasks = taskDtos.map((dto) => toTask(dto, projectsById, profilesById));
-  return { tasks, projects, profiles };
+  const tasks = taskDtos.map((dto) => toTask(dto, projectsById, membersById));
+  return { tasks, projects, members };
 }

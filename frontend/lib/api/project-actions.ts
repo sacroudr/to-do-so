@@ -23,7 +23,7 @@ export interface ActionResult {
   error?: string;
 }
 
-const AFFECTED_PATHS = ["/projects", "/kanban", "/list", "/dashboard"] as const;
+const AFFECTED_PATHS = ["/projects", "/kanban", "/list", "/dashboard", "/archive"] as const;
 
 export async function createProjectAction(
   values: ProjectFormValues,
@@ -64,5 +64,25 @@ export async function updateProjectAction(
     return { ok: true };
   } catch {
     return { ok: false, error: "La modification du projet a échoué." };
+  }
+}
+
+/**
+ * Supprime un projet ET ses taches en cascade (point 3). Le backend orchestre la
+ * suppression : purge des objets Storage des pieces jointes, suppression des taches
+ * (cascade sous-taches + lignes pieces jointes), puis du projet. Toutes les vues qui
+ * exposent ces taches / ce projet sont revalidees.
+ */
+export async function deleteProjectAction(projectId: string): Promise<ActionResult> {
+  try {
+    const accessToken = await getAccessToken();
+    await apiFetch(`/api/v1/projects/${projectId}`, {
+      method: "DELETE",
+      accessToken,
+    });
+    for (const path of AFFECTED_PATHS) revalidatePath(path);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "La suppression du projet a échoué." };
   }
 }

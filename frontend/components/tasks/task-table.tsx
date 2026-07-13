@@ -16,7 +16,8 @@ import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
 import { TASK_STATUSES } from "@/lib/constants/task";
 import { getDueKind } from "@/lib/tasks/due";
 import { sortTasks, type SortDirection, type TaskSortKey } from "@/lib/tasks/sort";
-import type { Profile, Project, Task, TaskStatus } from "@/lib/types/domain";
+import { memberFullName } from "@/lib/team/name";
+import type { Project, Task, TaskStatus, TeamMember } from "@/lib/types/domain";
 
 /**
  * Vue Liste (requirements.md §4.4).
@@ -49,11 +50,11 @@ interface SortState {
 export function TaskTable({
   tasks: tasksProp,
   projects,
-  profiles,
+  members,
 }: {
   tasks: Task[];
   projects: Project[];
-  profiles: Profile[];
+  members: TeamMember[];
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
@@ -203,7 +204,7 @@ export function TaskTable({
                     {task.project?.nom ?? "Sans projet"}
                   </td>
                   <td className="px-4 py-3 text-foreground/80">
-                    {task.assignees.map((a) => a.nom).join(", ") || "Non assigné"}
+                    {task.assignees.map(memberFullName).join(", ") || "Non assigné"}
                   </td>
                   <td className="px-4 py-3">
                     <DueDate
@@ -282,7 +283,7 @@ export function TaskTable({
         mode="edit"
         task={editingTask}
         projects={projects}
-        profiles={profiles}
+        members={members}
         onClose={() => setEditingTask(null)}
       />
 

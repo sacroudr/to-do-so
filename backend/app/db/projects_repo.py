@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import httpx
 
+from app.db import attachments_repo
 from app.db.supabase import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -74,3 +75,50 @@ def update_project_record(
     except _OFFLINE_ERRORS as exc:
         logger.warning("Base injoignable (update project), mode degrade: %s", exc)
         return None
+
+
+def delete_project_record(project_id: str) -> bool:
+    """Supprime un projet et TOUTES ses taches en cascade APPLICATIVE (point 3).
+
+    La FK `tasks.project_id -> projects` est `on delete set null` : supprimer le projet
+    ne supprime PAS ses taches automatiquement. On orchestre donc la suppression cote
+    application, dans un ORDRE precis :
+
+      1. lister les taches du projet (`project_id = id`) ;
+      2. purger les objets Storage de leurs pieces jointes AVANT de perdre les
+         `storage_path` (sinon fichiers orphelins) ;
+      3. supprimer les taches -> la CASCADE FK emporte sous-taches (`task_subtasks`) et
+         lignes de pieces jointes (`task_attachments`) ;
+      4. supprimer le projet.
+
+    Renvoie True si le projet a ete supprime, False si introuvable OU base/Storage
+    injoignable (mode degrade -> 404 cote route). SEULES les erreurs de connexion sont
+    interceptees (une erreur applicative reelle remonte normalement).
+    """
+    try:
+        client = get_supabase_client()
+
+        task_rows = (
+            client.table("tasks")
+            .select("id")
+            .eq("project_id", project_id)
+            .execute()
+            .data
+            or []
+        )
+        task_ids = [row["id"] for row in task_rows]
+
+        if task_ids:
+            # (2) Storage AVANT la base : on collecte puis purge les objets, tant que les
+            # `storage_path` existent encore. (3) La suppression des taches cascade sur
+            # les sous-taches et les lignes de pieces jointes via les FK existantes.
+            storage_paths = attachments_repo.list_storage_paths_for_tasks(client, task_ids)
+            attachments_repo.remove_storage_objects(client, storage_paths)
+            client.table("tasks").delete().eq("project_id", project_id).execute()
+
+        # (4) Suppression du projet ; les lignes renvoyees confirment son existence.
+        deleted = client.table("projects").delete().eq("id", project_id).execute().data
+        return bool(deleted)
+    except _OFFLINE_ERRORS as exc:
+        logger.warning("Base injoignable (delete project), mode degrade: %s", exc)
+        return False

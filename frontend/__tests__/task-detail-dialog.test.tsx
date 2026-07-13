@@ -42,7 +42,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: "Ordre du jour à finaliser",
     projectId: "proj-1",
     project: { id: "proj-1", nom: "Refonte Site", description: null },
-    assignees: [{ id: "p1", nom: "Alice Martin", email: "alice@equipe.test", avatar: null }],
+    // Responsable = team_member (points 2/3) : prenom + nom (plus de compte/email).
+    assignees: [{ id: "p1", firstName: "Alice", lastName: "Martin" }],
     dueDate: { date: "2026-07-20", text: null },
     statut: "in_progress",
     priorite: "high",
@@ -50,6 +51,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     subtaskProgress: { total: 0, done: 0 },
     createdAt: "2026-07-01T00:00:00Z",
     updatedAt: "2026-07-05T00:00:00Z",
+    completedAt: null,
     ...overrides,
   };
 }

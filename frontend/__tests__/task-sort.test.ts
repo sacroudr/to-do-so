@@ -13,10 +13,11 @@
 import { describe, expect, it } from "vitest";
 
 import { sortTasks } from "@/lib/tasks/sort";
-import type { Profile, Task, TaskPriority, TaskStatus } from "@/lib/types/domain";
+import type { Task, TaskPriority, TaskStatus, TeamMember } from "@/lib/types/domain";
 
-function profile(nom: string): Profile {
-  return { id: `p-${nom}`, nom, email: `${nom}@equipe.test`, avatar: null };
+// Responsable = team_member (points 2/3) : le tri par responsable derive du nom complet.
+function member(firstName: string): TeamMember {
+  return { id: `m-${firstName}`, firstName, lastName: "" };
 }
 
 function makeTask(
@@ -37,6 +38,7 @@ function makeTask(
     subtaskProgress: { total: 0, done: 0 },
     createdAt: "2026-07-01T00:00:00Z",
     updatedAt: "2026-07-01T00:00:00Z",
+    completedAt: null,
     ...overrides,
   };
 }
@@ -74,31 +76,25 @@ describe("sortTasks — vue Liste (§4.4)", () => {
   // Tri par statut (ordre des colonnes Kanban)
   // -------------------------------------------------------------------------
   it("should_order_by_status_following_kanban_column_order", () => {
-    // GIVEN les 9 statuts melanges (refonte 5 -> 9 : plus de « blocked »)
+    // GIVEN les 6 statuts melanges (reduction 9 -> 6 : plus de a_qualifier/waiting/archive)
     const tasks = [
-      makeTask("archive", { statut: "archive" }),
       makeTask("done", { statut: "done" }),
       makeTask("a_corriger", { statut: "a_corriger" }),
       makeTask("todo", { statut: "todo" }),
-      makeTask("a_qualifier", { statut: "a_qualifier" }),
       makeTask("in_progress", { statut: "in_progress" }),
       makeTask("a_tester", { statut: "a_tester" }),
-      makeTask("waiting", { statut: "waiting" }),
       makeTask("a_planifier", { statut: "a_planifier" }),
     ];
     // WHEN on trie par statut
     const sorted = sortTasks(tasks, "statut", "asc");
     // THEN ordre = celui des colonnes Kanban (TASK_STATUSES)
     expect(ids(sorted)).toEqual([
-      "a_qualifier",
       "a_planifier",
       "todo",
       "in_progress",
-      "waiting",
       "a_tester",
       "a_corriger",
       "done",
-      "archive",
     ]);
   });
 
@@ -108,9 +104,9 @@ describe("sortTasks — vue Liste (§4.4)", () => {
   it("should_order_by_first_assignee_name_alphabetically", () => {
     // GIVEN des taches avec des responsables differents
     const tasks = [
-      makeTask("charlie", { assignees: [profile("Charlie")] }),
-      makeTask("alice", { assignees: [profile("Alice")] }),
-      makeTask("bob", { assignees: [profile("Bob")] }),
+      makeTask("charlie", { assignees: [member("Charlie")] }),
+      makeTask("alice", { assignees: [member("Alice")] }),
+      makeTask("bob", { assignees: [member("Bob")] }),
     ];
     // WHEN on trie par responsable
     const sorted = sortTasks(tasks, "assignee", "asc");

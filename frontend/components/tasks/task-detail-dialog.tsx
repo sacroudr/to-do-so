@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { pluralize } from "@/lib/i18n/plural";
+import { memberFullName } from "@/lib/team/name";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -55,7 +56,7 @@ export function TaskDetailDialog({
 }) {
   if (!open || task === null) return null;
 
-  const assigneeNames = task.assignees.map((a) => a.nom).join(", ");
+  const assigneeNames = task.assignees.map(memberFullName).join(", ");
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="task-detail-title" className="max-w-lg">

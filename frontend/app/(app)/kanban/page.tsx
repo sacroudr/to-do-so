@@ -22,15 +22,15 @@ export default async function KanbanPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const { tasks, projects, profiles } = await getBoardData({
+  const { tasks, projects, members } = await getBoardData({
     assigneeId: firstValue(params.assignee),
     projectId: firstValue(params.project),
   });
 
   return (
     <div className="space-y-6">
-      <BoardHeader title="Vue Kanban" projects={projects} profiles={profiles} />
-      <KanbanBoard tasks={tasks} projects={projects} profiles={profiles} />
+      <BoardHeader title="Vue Kanban" projects={projects} members={members} />
+      <KanbanBoard tasks={tasks} projects={projects} members={members} />
     </div>
   );
 }

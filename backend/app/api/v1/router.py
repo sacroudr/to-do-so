@@ -12,6 +12,7 @@ from app.api.v1.routes import (
     projects,
     subtasks,
     tasks,
+    team_members,
 )
 
 api_router = APIRouter()
@@ -21,3 +22,4 @@ api_router.include_router(attachments.router)
 api_router.include_router(subtasks.router)
 api_router.include_router(projects.router)
 api_router.include_router(profiles.router)
+api_router.include_router(team_members.router)

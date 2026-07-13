@@ -17,16 +17,11 @@ export interface StatusMeta {
 
 /**
  * Ordre = ordre des colonnes Kanban (§4.3), du plus amont au plus terminal.
- * 9 statuts (refonte 5 -> 9). Les valeurs techniques restent en anglais / snake_case ;
- * les libelles FR (accentues) vivent ici. `sort.ts` derive STATUS_ORDER de ce tableau.
+ * 6 statuts (reduction 9 -> 6, point 1). Les valeurs techniques restent en anglais /
+ * snake_case ; les libelles FR (accentues) vivent ici. `sort.ts` derive STATUS_ORDER
+ * de ce tableau.
  */
 export const TASK_STATUSES: readonly StatusMeta[] = [
-  {
-    value: "a_qualifier",
-    label: "À qualifier",
-    badgeClassName: "bg-status-qualify/15 text-status-qualify",
-    columnClassName: "border-status-qualify/40",
-  },
   {
     value: "a_planifier",
     label: "À planifier",
@@ -46,12 +41,6 @@ export const TASK_STATUSES: readonly StatusMeta[] = [
     columnClassName: "border-status-progress/40",
   },
   {
-    value: "waiting",
-    label: "En attente",
-    badgeClassName: "bg-status-waiting/15 text-status-waiting",
-    columnClassName: "border-status-waiting/40",
-  },
-  {
     value: "a_tester",
     label: "À tester",
     badgeClassName: "bg-status-test/15 text-status-test",
@@ -68,12 +57,6 @@ export const TASK_STATUSES: readonly StatusMeta[] = [
     label: "Terminé",
     badgeClassName: "bg-status-done/15 text-status-done",
     columnClassName: "border-status-done/40",
-  },
-  {
-    value: "archive",
-    label: "Archivé",
-    badgeClassName: "bg-status-archive/15 text-status-archive",
-    columnClassName: "border-status-archive/40",
   },
 ] as const;
 

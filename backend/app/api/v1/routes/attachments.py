@@ -12,7 +12,7 @@ importees ici, remplacables par les tests).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, File, Response, UploadFile, status
 
 from app.api.deps import CurrentUser
 from app.core.errors import (
@@ -20,7 +20,11 @@ from app.core.errors import (
     PayloadTooLargeError,
     UnprocessableEntityError,
 )
-from app.db.attachments_repo import create_attachment_record, list_attachment_records
+from app.db.attachments_repo import (
+    create_attachment_record,
+    delete_attachment_record,
+    list_attachment_records,
+)
 from app.schemas.attachment import Attachment
 
 router = APIRouter(prefix="/tasks", tags=["attachments"])
@@ -67,3 +71,20 @@ async def upload_attachment(
     if record is None:
         raise NotFoundError("Tache introuvable ou stockage indisponible.")
     return Attachment(**record)
+
+
+@router.delete(
+    "/{task_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_attachment(task_id: str, attachment_id: str, user: CurrentUser) -> Response:
+    """Supprime une piece jointe (objet Storage + ligne DB) ; 404 si introuvable (§5).
+
+    La suppression est scopee par tache : une piece jointe d'une autre tache n'est
+    jamais touchee. Aucun fichier orphelin (purge Storage AVANT la ligne).
+    """
+    _ = user
+    deleted = delete_attachment_record(task_id=task_id, attachment_id=attachment_id)
+    if not deleted:
+        raise NotFoundError("Piece jointe introuvable.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
