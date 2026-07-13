@@ -129,6 +129,22 @@ def test_should_reject_blank_title(client, auth_headers, monkeypatch):
     assert called["create"] is False
 
 
+def test_should_reject_title_exceeding_max_length(client, auth_headers, monkeypatch):
+    """GIVEN un titre au-dela de la borne (max 500) WHEN POST THEN 422, sans persistance
+    (correctif securite : bornage des champs texte)."""
+    called = {"create": False}
+    monkeypatch.setattr(
+        CREATE_SEAM,
+        lambda **_: called.__setitem__("create", True) or _record(),
+        raising=False,
+    )
+
+    response = client.post(SUBS_PATH, json={"title": "x" * 501}, headers=auth_headers)
+
+    assert response.status_code == 422
+    assert called["create"] is False
+
+
 def test_should_reject_missing_title(client, auth_headers, monkeypatch):
     """GIVEN aucun champ `title` (absent, pas seulement vide) WHEN POST THEN 422, sans
     persistance : le contrat de creation exige explicitement un titre.

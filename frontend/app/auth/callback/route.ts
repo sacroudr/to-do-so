@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { safeInternalPath } from "@/lib/auth/safe-path";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -14,17 +15,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  *
  * Sans cette route, le `code` n'etait jamais echange : aucune session n'etait etablie et
  * la premiere page protegee (dashboard) appelait l'API sans JWT -> 401.
+ *
+ * La validation anti open-redirect est factorisee dans `safeInternalPath`
+ * (`lib/auth/safe-path.ts`), partagee avec l'ecran de connexion (DRY).
  */
-function safeNext(next: string | null): string {
-  // Anti open-redirect : on n'autorise que des chemins internes.
-  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return "/dashboard";
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = safeNext(searchParams.get("next"));
+  const next = safeInternalPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createSupabaseServerClient();

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class TaskStatus(str, Enum):
@@ -45,6 +45,14 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
+    # Bornes de longueur (defense contre des payloads abusifs) appliquees a l'ENTREE
+    # uniquement : le modele de SORTIE `Task` reste non contraint pour ne jamais rejeter
+    # en LECTURE une ligne existante qui depasserait ces limites (validation niveau API,
+    # pas contrainte DB retroactive).
+    titre: str = Field(min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=20000)
+    due_date_text: str | None = Field(default=None, max_length=200)
+    source: str | None = Field(default=None, max_length=500)
     # Identifiants des responsables (relation multiple via `task_assignees`).
     assignee_ids: list[str] = []
 
@@ -62,14 +70,16 @@ class TaskCreate(TaskBase):
 
 
 class TaskUpdate(BaseModel):
-    titre: str | None = None
-    description: str | None = None
+    # Memes bornes qu'a la creation ; les contraintes de longueur ne s'appliquent qu'aux
+    # valeurs FOURNIES (None -> champ non modifie, ignore par min/max_length).
+    titre: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=20000)
     project_id: str | None = None
     due_date: date | None = None
-    due_date_text: str | None = None
+    due_date_text: str | None = Field(default=None, max_length=200)
     statut: TaskStatus | None = None
     priorite: TaskPriority | None = None
-    source: str | None = None
+    source: str | None = Field(default=None, max_length=500)
     assignee_ids: list[str] | None = None
 
 

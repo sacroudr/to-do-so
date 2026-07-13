@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { safeInternalPath } from "@/lib/auth/safe-path";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -21,7 +22,9 @@ const FIELD_CLASS =
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectedFrom = searchParams.get("redirectedFrom") ?? "/dashboard";
+  // Anti open-redirect : la destination post-login provient de la query (non fiable),
+  // on la filtre via la garde partagee avant tout `router.push` (cf. lib/auth/safe-path).
+  const redirectedFrom = safeInternalPath(searchParams.get("redirectedFrom"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -44,6 +44,15 @@ def test_should_require_auth_to_delete_member(client):
     assert response.json()["error"]["code"] == "authentication_error"
 
 
+def test_should_reject_member_creation_when_first_name_exceeds_max_length(client, auth_headers):
+    """GIVEN un `first_name` au-dela de la borne (max 100) WHEN POST /team-members THEN 422
+    (correctif securite : bornage des champs texte). Rejet avant toute persistance."""
+    response = client.post(
+        MEMBERS_PATH, json={"first_name": "x" * 101}, headers=auth_headers
+    )
+    assert response.status_code == 422
+
+
 # ===========================================================================
 # Edition (PATCH)
 # ===========================================================================

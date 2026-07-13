@@ -9,8 +9,10 @@ reel via magic bytes + content-type) et de la TAILLE, et serialisation.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+from app.api.middleware import MaxUploadBodySizeMiddleware
 from tests.conftest import TEST_USER_ID
 
 TASK_ID = "44444444-4444-4444-4444-444444444444"
@@ -216,3 +218,124 @@ def test_should_return_404_when_deleting_missing_attachment(client, auth_headers
     response = client.delete(f"{ATTACH_PATH}/inconnu", headers=auth_headers)
 
     assert response.status_code == 404
+
+
+# ===========================================================================
+# Anti-DoS a l'upload (correctif securite) — garde `Content-Length` AVANT parsing
+# ===========================================================================
+class _RecordingASGIApp:
+    """App ASGI interne factice : note si elle a ete appelee et renvoie un 201 minimal.
+
+    Sert a prouver qu'un rejet du garde de taille court-circuite AVANT toute lecture du
+    corps (l'app interne — ou serait parse/spoole le multipart — n'est jamais atteinte).
+    """
+
+    def __init__(self) -> None:
+        self.called = False
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        self.called = True
+        await send({"type": "http.response.start", "status": 201, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+
+def _http_scope(method: str, path: str, headers: list[tuple[bytes, bytes]]) -> dict[str, Any]:
+    return {"type": "http", "method": method, "path": path, "headers": headers}
+
+
+def _drive(middleware: Any, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pilote une requete ASGI a travers `middleware` et capture les messages envoyes."""
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(middleware(scope, receive, send))
+    return sent
+
+
+def _status_of(sent: list[dict[str, Any]]) -> int:
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    return int(start["status"])
+
+
+def test_middleware_rejects_oversized_content_length_before_parsing():
+    """GIVEN un POST d'upload dont `Content-Length` >> limite WHEN il traverse le garde
+    THEN 413 et l'app interne (parsing/spool du corps) n'est JAMAIS appelee.
+    """
+    inner = _RecordingASGIApp()
+    middleware = MaxUploadBodySizeMiddleware(inner, max_body_bytes=10)
+    scope = _http_scope(
+        "POST", ATTACH_PATH, [(b"content-length", b"999999999")]
+    )
+
+    sent = _drive(middleware, scope)
+
+    assert _status_of(sent) == 413
+    assert inner.called is False  # corps jamais lu/parse/spoole -> pas de DoS disque
+
+
+def test_middleware_allows_body_within_limit():
+    """GIVEN un `Content-Length` sous la limite WHEN POST d'upload THEN l'app interne est
+    appelee normalement (pas de rejet).
+    """
+    inner = _RecordingASGIApp()
+    middleware = MaxUploadBodySizeMiddleware(inner, max_body_bytes=10_000)
+    scope = _http_scope("POST", ATTACH_PATH, [(b"content-length", b"500")])
+
+    sent = _drive(middleware, scope)
+
+    assert _status_of(sent) == 201
+    assert inner.called is True
+
+
+def test_middleware_ignores_non_upload_paths():
+    """GIVEN un gros `Content-Length` mais sur un chemin NON garde WHEN requete THEN elle
+    passe (le garde ne s'applique qu'aux POST .../attachments).
+    """
+    inner = _RecordingASGIApp()
+    middleware = MaxUploadBodySizeMiddleware(inner, max_body_bytes=10)
+    scope = _http_scope("POST", "/api/v1/tasks", [(b"content-length", b"999999999")])
+
+    sent = _drive(middleware, scope)
+
+    assert inner.called is True
+
+
+def test_middleware_ignores_missing_content_length():
+    """GIVEN aucun `Content-Length` (upload chunked possible) WHEN POST d'upload THEN le
+    garde laisse passer — la lecture bornee de la route prend alors le relais (RAM).
+    """
+    inner = _RecordingASGIApp()
+    middleware = MaxUploadBodySizeMiddleware(inner, max_body_bytes=10)
+    scope = _http_scope("POST", ATTACH_PATH, [])
+
+    sent = _drive(middleware, scope)
+
+    assert inner.called is True
+
+
+def test_should_reject_oversized_file_before_storage(client, auth_headers, monkeypatch):
+    """GIVEN un fichier plus gros que la limite (passe le garde `Content-Length` mais
+    depasse la limite metier) WHEN POST THEN 413 par la LECTURE BORNEE, et rien n'est
+    ecrit dans le Storage (`create_attachment_record` jamais appele).
+    """
+    monkeypatch.setattr(MAX_BYTES_CONST, 8, raising=False)
+    called = {"create": False}
+    monkeypatch.setattr(
+        CREATE_SEAM,
+        lambda **_: called.__setitem__("create", True) or _record(),
+        raising=False,
+    )
+
+    response = client.post(
+        ATTACH_PATH,
+        files={"file": ("gros.pdf", VALID_PDF, "application/pdf")},  # 23 octets > 8
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 413
+    assert called["create"] is False  # rejet AVANT tout stockage

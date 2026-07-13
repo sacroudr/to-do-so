@@ -70,6 +70,21 @@ def test_should_reject_creation_when_titre_missing(client, auth_headers):
     assert response.status_code == 422
 
 
+def test_should_reject_creation_when_titre_exceeds_max_length(client, auth_headers):
+    """GIVEN un titre au-dela de la borne (max 500) WHEN POST /tasks THEN 422 (correctif
+    securite : bornage des champs texte contre les payloads abusifs)."""
+    payload = _full_payload(titre="x" * 501)
+    response = client.post(TASKS_PATH, json=payload, headers=auth_headers)
+    assert response.status_code == 422
+
+
+def test_should_reject_creation_when_description_exceeds_max_length(client, auth_headers):
+    """GIVEN une description au-dela de la borne (max 20000) WHEN POST /tasks THEN 422."""
+    payload = _full_payload(description="x" * 20001)
+    response = client.post(TASKS_PATH, json=payload, headers=auth_headers)
+    assert response.status_code == 422
+
+
 def test_should_reject_creation_when_status_is_invalid(client, auth_headers):
     """GIVEN un statut hors enumeration (point 1 : a planifier / a faire / en cours /
     a tester / a corriger / termine)

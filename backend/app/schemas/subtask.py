@@ -6,7 +6,7 @@ se fait en envoyant la liste ORDONNEE des identifiants (`SubtaskReorder`).
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Subtask(BaseModel):
@@ -21,7 +21,9 @@ class Subtask(BaseModel):
 class SubtaskCreate(BaseModel):
     """Creation d'un item : seul le titre (non vide) est requis ; ajoute en fin de liste."""
 
-    title: str
+    # max_length borne l'entree ; le validateur ci-dessous reste la contrainte non-vide
+    # (plus stricte : rejette aussi les titres composes uniquement d'espaces).
+    title: str = Field(min_length=1, max_length=500)
 
     @field_validator("title")
     @classmethod
@@ -39,7 +41,7 @@ class SubtaskUpdate(BaseModel):
     """
 
     is_done: bool | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=500)
 
     @field_validator("title")
     @classmethod

@@ -31,9 +31,35 @@ router = APIRouter(prefix="/tasks", tags=["attachments"])
 
 # Limite de taille par fichier (10 Mo) — coherente avec le bucket Storage (migration).
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+# Taille de chunk pour la lecture BORNEE (64 Ko) : on ne materialise jamais en RAM plus
+# que la limite metier + un chunk, meme si le corps recu est bien plus gros.
+_READ_CHUNK_BYTES = 64 * 1024
 # Signature magique d'un PDF (defense contre une simple extension .pdf renommee).
 _PDF_MAGIC = b"%PDF-"
 _PDF_MIME = "application/pdf"
+
+
+async def _read_within_limit(file: UploadFile, limit: int) -> bytes:
+    """Lit `file` par chunks et s'arrete des que le cumul depasse `limit` (413).
+
+    Protection RAM : contrairement a `await file.read()` (qui materialise TOUT le corps
+    spoole, potentiellement plusieurs Go, dans un seul `bytes`), on borne l'accumulation
+    a `limit`. Des le premier octet en trop on leve `PayloadTooLargeError` sans continuer
+    a lire ni bufferiser le reste.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise PayloadTooLargeError(
+                "Le fichier depasse la taille maximale autorisee (10 Mo)."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @router.get("/{task_id}/attachments")
@@ -49,18 +75,23 @@ async def upload_attachment(
     user: CurrentUser,
     file: UploadFile = File(...),
 ) -> Attachment:
-    """Televerse un PDF pour la tache ; valide type MIME reel + taille (§5)."""
-    content = await file.read()
+    """Televerse un PDF pour la tache ; valide type MIME reel + taille (§5).
 
-    if len(content) > MAX_ATTACHMENT_BYTES:
-        raise PayloadTooLargeError(
-            "Le fichier depasse la taille maximale autorisee (10 Mo)."
-        )
+    Ordre de validation STRICT (rien n'atteint le Storage avant validation complete) :
+    1. taille — lecture bornee par chunks -> 413 si depassement ;
+    2. type — magic bytes `%PDF-` + content-type declare -> 422 sinon ;
+    3. persistance — `create_attachment_record` (upload Storage) seulement ensuite.
+    """
+    # 1. Taille : lecture BORNEE (protection RAM). En amont, MaxUploadBodySizeMiddleware
+    #    a deja rejete via `Content-Length` avant tout parsing multipart (protection disque).
+    content = await _read_within_limit(file, MAX_ATTACHMENT_BYTES)
 
-    # On NE se fie PAS a l'extension : on exige le bon content-type ET les magic bytes.
+    # 2. Type : on NE se fie PAS a l'extension ; on exige content-type ET magic bytes.
     if file.content_type != _PDF_MIME or not content.startswith(_PDF_MAGIC):
         raise UnprocessableEntityError("Seuls les fichiers PDF sont acceptes.")
 
+    # 3. Persistance : seule etape qui ecrit dans le Storage — jamais atteinte pour un
+    #    fichier surdimensionne (413) ou non-PDF (422).
     record = create_attachment_record(
         task_id=task_id,
         content=content,

@@ -28,6 +28,15 @@ def test_should_reject_project_creation_when_nom_missing(client, auth_headers):
     assert response.status_code == 422
 
 
+def test_should_reject_project_creation_when_nom_exceeds_max_length(client, auth_headers):
+    """GIVEN un `nom` au-dela de la borne (max 200) WHEN POST /projects THEN 422 (correctif
+    securite : bornage des champs texte)."""
+    response = client.post(
+        PROJECTS_PATH, json={"nom": "x" * 201}, headers=auth_headers
+    )
+    assert response.status_code == 422
+
+
 def test_should_create_project(client, auth_headers, monkeypatch):
     """GIVEN un payload valide WHEN POST /projects THEN 201 + le corps reflete le projet
     cree, et la couche donnees recoit bien les champs saisis (§5).
