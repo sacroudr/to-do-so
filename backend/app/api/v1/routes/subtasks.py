@@ -4,7 +4,7 @@ imbriques sous /api/v1/tasks/{task_id}/subtasks. Proteges par JWT.
 Ressources :
   - GET    /tasks/{task_id}/subtasks            -> liste (triee par position)
   - POST   /tasks/{task_id}/subtasks            -> creer (title) en fin de liste
-  - PATCH  /tasks/{task_id}/subtasks/{sub_id}   -> cocher/decocher (is_done) et/ou renommer
+  - PATCH  /tasks/{task_id}/subtasks/{sub_id}   -> changer le statut et/ou renommer
   - DELETE /tasks/{task_id}/subtasks/{sub_id}   -> supprimer
   - PUT    /tasks/{task_id}/subtasks/order      -> reordonner (liste ordonnee d'ids)
 
@@ -52,7 +52,7 @@ def create_subtask(task_id: str, payload: SubtaskCreate, user: CurrentUser) -> S
 def update_subtask(
     task_id: str, sub_id: str, payload: SubtaskUpdate, user: CurrentUser
 ) -> Subtask:
-    """Coche/decoche (is_done) et/ou renomme une sous-tache ; 404 si introuvable."""
+    """Change le statut et/ou renomme une sous-tache ; 404 si introuvable."""
     _ = user
     record = update_subtask_record(
         task_id=task_id,

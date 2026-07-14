@@ -82,6 +82,11 @@ def _fetch_assignee_ids(client: Any, task_id: str) -> list[str]:
     return [r["user_id"] for r in (result.data or [])]
 
 
+# Statut terminal d'une sous-tache (aligne sur schemas.task.TaskStatus.DONE et l'enum DB
+# public.task_status). Une sous-tache « done » compte dans le badge de progression.
+_SUBTASK_DONE_STATUS = "done"
+
+
 def _fetch_subtask_counts(
     client: Any, task_ids: list[str]
 ) -> dict[str, tuple[int, int]]:
@@ -95,7 +100,7 @@ def _fetch_subtask_counts(
         return {}
     rows = (
         client.table("task_subtasks")
-        .select("task_id, is_done")
+        .select("task_id, statut")
         .in_("task_id", task_ids)
         .execute()
         .data
@@ -104,14 +109,25 @@ def _fetch_subtask_counts(
     counts: dict[str, tuple[int, int]] = {}
     for row in rows:
         total, done = counts.get(row["task_id"], (0, 0))
-        counts[row["task_id"]] = (total + 1, done + (1 if row["is_done"] else 0))
+        # « done » = sous-tache au statut terminal (remplace l'ancien booleen is_done).
+        is_done = row["statut"] == _SUBTASK_DONE_STATUS
+        counts[row["task_id"]] = (total + 1, done + (1 if is_done else 0))
     return counts
 
 
 def _list_task_records(
-    *, assignee_id: str | None, project_id: str | None, archived: bool
+    *,
+    owner_id: str,
+    assignee_id: str | None,
+    project_id: str | None,
+    archived: bool,
 ) -> list[dict[str, Any]]:
     """Corps commun des listes de taches (vue active OU page Archive, point 4).
+
+    ISOLATION PAR UTILISATEUR : ne renvoie QUE les taches dont `created_by == owner_id`
+    (le compte connecte). Une tache creee par un autre compte n'est jamais listee — le
+    projet est mono-utilisateur pour l'instant (pas d'equipes), chacun ne voit que ses
+    propres taches. C'est LA garde reelle (le backend passe par service_role, hors RLS).
 
     `archived=False` : exclut les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES).
     `archived=True`  : ne renvoie QUE les taches archivees. Filtre DYNAMIQUE (now())."""
@@ -132,7 +148,8 @@ def _list_task_records(
             if not allowed_task_ids:
                 return []  # un responsable sans tache -> liste vide (pas une erreur)
 
-        query = client.table("tasks").select(_TASK_COLUMNS)
+        # Isolation : uniquement les taches du compte connecte (createur).
+        query = client.table("tasks").select(_TASK_COLUMNS).eq("created_by", owner_id)
         if project_id:
             query = query.eq("project_id", project_id)
         if allowed_task_ids is not None:
@@ -171,26 +188,28 @@ def _list_task_records(
 
 
 def list_task_records(
-    *, assignee_id: str | None = None, project_id: str | None = None
+    *, owner_id: str, assignee_id: str | None = None, project_id: str | None = None
 ) -> list[dict[str, Any]]:
-    """Liste les taches ACTIVES, filtrees optionnellement par responsable / projet (§4.6).
+    """Liste les taches ACTIVES du compte `owner_id`, filtrees par responsable / projet (§4.6).
 
+    Isolation par utilisateur : seules les taches creees par `owner_id` sont renvoyees.
     Exclut les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES, point 4) : elles
     ne remontent ni dans le Kanban ni dans la Liste par defaut, seulement dans Archive.
     """
     return _list_task_records(
-        assignee_id=assignee_id, project_id=project_id, archived=False
+        owner_id=owner_id, assignee_id=assignee_id, project_id=project_id, archived=False
     )
 
 
 def list_archived_task_records(
-    *, assignee_id: str | None = None, project_id: str | None = None
+    *, owner_id: str, assignee_id: str | None = None, project_id: str | None = None
 ) -> list[dict[str, Any]]:
-    """Liste EXACTEMENT les taches archivees (done depuis > ARCHIVE_DELAY_MINUTES, point 4).
+    """Liste EXACTEMENT les taches archivees du compte `owner_id` (done > ARCHIVE_DELAY, point 4).
 
-    Alimente la page Archive. Memes filtres optionnels responsable / projet (§4.6)."""
+    Isolation par utilisateur (voir `list_task_records`). Alimente la page Archive. Memes
+    filtres optionnels responsable / projet (§4.6)."""
     return _list_task_records(
-        assignee_id=assignee_id, project_id=project_id, archived=True
+        owner_id=owner_id, assignee_id=assignee_id, project_id=project_id, archived=True
     )
 
 
@@ -223,8 +242,15 @@ def create_task_record(data: dict[str, Any], created_by: str) -> dict[str, Any]:
     return _run_or_offline(_insert, offline_value=offline_echo)
 
 
-def update_task_record(task_id: str, changes: dict[str, Any]) -> dict[str, Any] | None:
-    """Met a jour une tache (statut, champs, responsables) ; None si introuvable (§4.2)."""
+def update_task_record(
+    task_id: str, changes: dict[str, Any], owner_id: str
+) -> dict[str, Any] | None:
+    """Met a jour une tache DU COMPTE `owner_id` ; None si introuvable/non possedee (§4.2).
+
+    Isolation par utilisateur : la garde `created_by == owner_id` fait qu'une tache d'un
+    autre compte n'est jamais modifiee (ni ses responsables) — elle se comporte comme
+    introuvable (None -> 404). Cette scope s'applique AVANT toute reassignation.
+    """
 
     def _update() -> dict[str, Any] | None:
         client = get_supabase_client()
@@ -232,13 +258,25 @@ def update_task_record(task_id: str, changes: dict[str, Any]) -> dict[str, Any] 
         column_changes = {k: v for k, v in changes.items() if k != "assignee_ids"}
         reassign = "assignee_ids" in changes  # reassignation demandee ou non
 
+        # Scope proprietaire sur la tache elle-meme : une tache d'un autre compte ne
+        # matche pas -> aucune ligne mise a jour / selectionnee -> row is None -> 404.
         if column_changes:
             result = (
-                client.table("tasks").update(column_changes).eq("id", task_id).execute()
+                client.table("tasks")
+                .update(column_changes)
+                .eq("id", task_id)
+                .eq("created_by", owner_id)
+                .execute()
             )
             row = result.data[0] if result.data else None
         else:
-            result = client.table("tasks").select(_TASK_COLUMNS).eq("id", task_id).execute()
+            result = (
+                client.table("tasks")
+                .select(_TASK_COLUMNS)
+                .eq("id", task_id)
+                .eq("created_by", owner_id)
+                .execute()
+            )
             row = result.data[0] if result.data else None
 
         if row is None:
@@ -259,17 +297,23 @@ def update_task_record(task_id: str, changes: dict[str, Any]) -> dict[str, Any] 
 
 
 def delete_task_record(task_id: str, user_id: str) -> bool:
-    """Supprime une tache ; True si une ligne a ete supprimee, False sinon (§4.2).
+    """Supprime une tache DU COMPTE `user_id` ; True si supprimee, False sinon (§4.2).
 
-    N'importe quel membre authentifie peut supprimer n'importe quelle tache (regle
-    produit confirmee §4.2 / §3) : `user_id` n'est pas utilise comme garde-fou, il
-    reste dans la signature pour l'audit / une eventuelle journalisation future.
+    Isolation par utilisateur : la garde `created_by == user_id` fait qu'un compte ne peut
+    supprimer que SES propres taches. Tenter de supprimer la tache d'un autre compte ne
+    matche aucune ligne -> False -> 404 (indistinct d'un id inexistant, pas de fuite
+    d'existence). Ceci REMPLACE l'ancienne regle « tout membre supprime toute tache ».
     """
-    _ = user_id
 
     def _delete() -> bool:
         client = get_supabase_client()
-        result = client.table("tasks").delete().eq("id", task_id).execute()
+        result = (
+            client.table("tasks")
+            .delete()
+            .eq("id", task_id)
+            .eq("created_by", user_id)
+            .execute()
+        )
         return bool(result.data)
 
     # Mode degrade : base injoignable -> suppression non confirmee -> False (404).

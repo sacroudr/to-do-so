@@ -3,6 +3,8 @@
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { useEffect } from "react";
 
+import { Button } from "@/components/ui/button";
+
 /**
  * Frontiere d'erreur des pages authentifiees (§8 — robustesse).
  *
@@ -35,14 +37,9 @@ export default function AppError({
           réessayez.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
-      >
-        <RotateCw className="size-4" aria-hidden />
+      <Button type="button" leftIcon={<RotateCw className="size-4" aria-hidden />} onClick={reset}>
         Réessayer
-      </button>
+      </Button>
     </div>
   );
 }

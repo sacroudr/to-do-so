@@ -1,9 +1,11 @@
 "use client";
 
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -13,8 +15,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  * recuperation est active, ce qui autorise `updateUser({ password })`. Meme direction
  * visuelle que l'ecran de connexion (champs a icone, bascule d'affichage, etats styles).
  */
-const FIELD_CLASS =
-  "w-full rounded-lg border border-border bg-background py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function ResetPasswordPage() {
@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          <Input
             id="password"
             type={showPassword ? "text" : "password"}
             required
@@ -79,7 +79,7 @@ export default function ResetPasswordPage() {
             autoFocus
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`${FIELD_CLASS} pl-9 pr-10`}
+            className="pl-9 pr-10"
           />
           <button
             type="button"
@@ -101,14 +101,14 @@ export default function ResetPasswordPage() {
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          <Input
             id="confirm"
             type={showPassword ? "text" : "password"}
             required
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className={`${FIELD_CLASS} pl-9 pr-3`}
+            className="pl-9 pr-3"
           />
         </div>
       </div>
@@ -123,20 +123,9 @@ export default function ResetPasswordPage() {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            Enregistrement...
-          </>
-        ) : (
-          "Définir le nouveau mot de passe"
-        )}
-      </button>
+      <Button type="submit" loading={loading} className="w-full">
+        Définir le nouveau mot de passe
+      </Button>
     </form>
   );
 }

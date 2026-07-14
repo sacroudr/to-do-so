@@ -7,10 +7,10 @@ import { useState, useTransition, type DragEvent } from "react";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
-import { ActionError } from "@/components/ui/action-error";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { deleteTaskAction, updateTaskStatusAction } from "@/lib/api/actions";
-import { TASK_STATUSES } from "@/lib/constants/task";
+import { STATUS_BY_VALUE, TASK_STATUSES } from "@/lib/constants/task";
 import type { Project, Task, TaskStatus, TeamMember } from "@/lib/types/domain";
 
 /**
@@ -33,13 +33,13 @@ export function KanbanBoard({
   members: TeamMember[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [tasks, setTasks] = useState<Task[]>(tasksProp);
   const [overStatus, setOverStatus] = useState<TaskStatus | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [createStatus, setCreateStatus] = useState<TaskStatus | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Task | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Resynchronise sur les donnees serveur (apres revalidation / navigation) via le
@@ -68,7 +68,6 @@ export function KanbanBoard({
     if (!current || current.statut === status) return;
 
     // Mise a jour optimiste.
-    setActionError(null);
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, statut: status } : t)),
     );
@@ -77,9 +76,10 @@ export function KanbanBoard({
       const result = await updateTaskStatusAction(taskId, status);
       if (result.ok) {
         router.refresh();
+        toast.success(`Tâche déplacée vers « ${STATUS_BY_VALUE[status].label} ».`);
       } else {
         setTasks(tasksProp); // revert vers l'etat serveur
-        setActionError(result.error ?? "Le changement de statut a échoué.");
+        toast.error(result.error ?? "Le changement de statut a échoué.");
       }
     });
   }
@@ -88,23 +88,21 @@ export function KanbanBoard({
     const task = pendingDelete;
     if (!task) return;
     setPendingDelete(null);
-    setActionError(null);
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
     startTransition(async () => {
       const result = await deleteTaskAction(task.id);
       if (result.ok) {
         router.refresh();
+        toast.success(`Tâche « ${task.titre} » supprimée.`);
       } else {
         setTasks(tasksProp);
-        setActionError(result.error ?? "La suppression de la tâche a échoué.");
+        toast.error(result.error ?? "La suppression de la tâche a échoué.");
       }
     });
   }
 
   return (
     <>
-      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
-
       {/*
         6 statuts : rangee flex a DEFILEMENT HORIZONTAL fluide (plutot qu'une grille
         qui wrap et coupe les colonnes). Chaque colonne a une largeur fixe coherente

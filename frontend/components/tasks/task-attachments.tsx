@@ -1,8 +1,10 @@
 "use client";
 
-import { Check, Download, Loader2, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { Download, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import {
   deleteAttachmentAction,
   listAttachmentsAction,
@@ -19,6 +21,10 @@ import type { TaskAttachment } from "@/lib/types/domain";
  * La liste est chargee paresseusement a l'ouverture (le composant n'est monte que dans
  * la vue detail / le formulaire d'edition), et rechargee apres chaque ajout. Le
  * telechargement utilise l'URL SIGNEE renvoyee par l'API (bucket prive).
+ *
+ * Feedback (§8) : succes / erreur (upload, suppression) via la notification globale ;
+ * la suppression passe par la MEME modale de confirmation `ConfirmDialog` que le reste de
+ * l'app (plus de confirmation inline divergente).
  */
 const PDF_MIME = "application/pdf";
 
@@ -34,15 +40,14 @@ function formatDate(iso: string | null): string {
 }
 
 export function TaskAttachments({ taskId }: { taskId: string }) {
+  const toast = useToast();
   const [items, setItems] = useState<TaskAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Suppression avec confirmation LEGERE inline (pas de modale bloquante, meme niveau de
-  // friction que la suppression d'une sous-tache) : premier clic -> etat de confirmation
-  // sur la ligne ; `deletingId` desactive les controles pendant la requete.
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Suppression via modale de confirmation (motif unifie, §8) : `pendingDelete` porte la
+  // piece a supprimer ; `deleting` desactive les controles pendant la requete.
+  const [pendingDelete, setPendingDelete] = useState<TaskAttachment | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Chargement paresseux a l'ouverture (`loading` demarre a `true`). On ne declenche
   // pas de setState synchrone dans l'effet : l'etat n'est mis a jour qu'apres la
@@ -66,13 +71,12 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
     event.target.value = "";
     if (!file) return;
 
-    setError(null);
     if (file.type !== PDF_MIME) {
-      setError("Seuls les fichiers PDF sont acceptés.");
+      toast.error("Seuls les fichiers PDF sont acceptés.");
       return;
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      setError("Le fichier dépasse la taille maximale (10 Mo).");
+      toast.error("Le fichier dépasse la taille maximale (10 Mo).");
       return;
     }
 
@@ -103,40 +107,43 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
 
       if (!response.ok) {
         if (response.status === 413) {
-          setError("Le fichier dépasse la taille maximale (10 Mo).");
+          toast.error("Le fichier dépasse la taille maximale (10 Mo).");
         } else if (response.status === 422) {
-          setError("Seuls les fichiers PDF sont acceptés.");
+          toast.error("Seuls les fichiers PDF sont acceptés.");
         } else {
-          setError("L'envoi de la pièce jointe a échoué.");
+          toast.error("L'envoi de la pièce jointe a échoué.");
         }
         return;
       }
 
       // Succes (201) : on rafraichit la liste (lecture seule, sans probleme de taille).
       setItems(await listAttachmentsAction(taskId));
+      toast.success(`Pièce jointe « ${file.name} » ajoutée.`);
     } catch {
-      setError("L'envoi de la pièce jointe a échoué.");
+      toast.error("L'envoi de la pièce jointe a échoué.");
     } finally {
       setUploading(false);
     }
   }
 
-  async function handleDelete(attachmentId: string): Promise<void> {
-    setError(null);
-    setDeletingId(attachmentId);
+  async function confirmDelete(): Promise<void> {
+    const attachment = pendingDelete;
+    if (!attachment) return;
+    setDeleting(true);
     try {
-      const result = await deleteAttachmentAction(taskId, attachmentId);
+      const result = await deleteAttachmentAction(taskId, attachment.id);
       if (!result.ok) {
-        setError(result.error ?? "La suppression de la pièce jointe a échoué.");
+        toast.error(result.error ?? "La suppression de la pièce jointe a échoué.");
         return;
       }
       // Apres succes : on rafraichit la liste (le backend a purge Storage + ligne).
-      setConfirmingId(null);
+      setPendingDelete(null);
       setItems(await listAttachmentsAction(taskId));
+      toast.success(`Pièce jointe « ${attachment.fileName} » supprimée.`);
     } catch {
-      setError("La suppression de la pièce jointe a échoué.");
+      toast.error("La suppression de la pièce jointe a échoué.");
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   }
 
@@ -164,89 +171,67 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
         </label>
       </div>
 
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
-
       {loading ? (
         <p className="text-xs text-muted-foreground">Chargement des pièces jointes…</p>
       ) : items.length === 0 ? (
         <p className="text-xs text-muted-foreground">Aucune pièce jointe.</p>
       ) : (
         <ul className="space-y-1">
-          {items.map((attachment) => {
-            const confirming = confirmingId === attachment.id;
-            const deleting = deletingId === attachment.id;
-            return (
-              <li
-                key={attachment.id}
-                className="group flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {attachment.fileName}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {formatDate(attachment.createdAt)}
-                    {attachment.uploadedByName ? ` · ${attachment.uploadedByName}` : ""}
-                  </p>
-                </div>
+          {items.map((attachment) => (
+            <li
+              key={attachment.id}
+              className="group flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-1.5"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {attachment.fileName}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {formatDate(attachment.createdAt)}
+                  {attachment.uploadedByName ? ` · ${attachment.uploadedByName}` : ""}
+                </p>
+              </div>
 
-                <div className="flex shrink-0 items-center gap-1">
-                  {attachment.signedUrl ? (
-                    <a
-                      href={attachment.signedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`Télécharger ${attachment.fileName}`}
-                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
-                    >
-                      <Download className="size-4" />
-                    </a>
-                  ) : null}
+              <div className="flex shrink-0 items-center gap-1">
+                {attachment.signedUrl ? (
+                  <a
+                    href={attachment.signedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Télécharger ${attachment.fileName}`}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+                  >
+                    <Download className="size-4" />
+                  </a>
+                ) : null}
 
-                  {confirming ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(attachment.id)}
-                        disabled={deleting}
-                        aria-label={`Confirmer la suppression de ${attachment.fileName}`}
-                        className="rounded-md p-1 text-danger transition-colors hover:bg-danger/10 disabled:opacity-60"
-                      >
-                        {deleting ? (
-                          <Loader2 className="size-4 animate-spin" aria-hidden />
-                        ) : (
-                          <Check className="size-4" aria-hidden />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingId(null)}
-                        disabled={deleting}
-                        aria-label="Annuler la suppression"
-                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-60"
-                      >
-                        <X className="size-4" aria-hidden />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError(null);
-                        setConfirmingId(attachment.id);
-                      }}
-                      aria-label={`Supprimer ${attachment.fileName}`}
-                      className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                    </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(attachment)}
+                  aria-label={`Supprimer ${attachment.fileName}`}
+                  className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </button>
+              </div>
+            </li>
+          ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Supprimer la pièce jointe"
+        message={
+          pendingDelete
+            ? `La pièce jointe « ${pendingDelete.fileName} » sera définitivement supprimée.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+        pending={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

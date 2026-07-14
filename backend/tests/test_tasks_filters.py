@@ -40,6 +40,8 @@ from typing import Any
 
 import pytest
 
+from tests.conftest import TEST_USER_ID
+
 TASKS_PATH = "/api/v1/tasks"
 SEAM = "app.api.v1.routes.tasks.list_task_records"
 
@@ -91,7 +93,10 @@ def test_should_filter_by_assignee(client, auth_headers, monkeypatch):
     response = client.get(f"{TASKS_PATH}?assignee={USER_A}", headers=auth_headers)
 
     assert response.status_code == 200
-    assert fake.calls == [{"assignee_id": USER_A, "project_id": None}]
+    # Isolation : le compte connecte (owner_id) est TOUJOURS transmis a la couche donnees.
+    assert fake.calls == [
+        {"owner_id": TEST_USER_ID, "assignee_id": USER_A, "project_id": None}
+    ]
     assert [t["id"] for t in response.json()] == ["t1"]
 
 
@@ -109,7 +114,9 @@ def test_should_filter_by_project(client, auth_headers, monkeypatch):
     response = client.get(f"{TASKS_PATH}?project={PROJECT_A}", headers=auth_headers)
 
     assert response.status_code == 200
-    assert fake.calls == [{"assignee_id": None, "project_id": PROJECT_A}]
+    assert fake.calls == [
+        {"owner_id": TEST_USER_ID, "assignee_id": None, "project_id": PROJECT_A}
+    ]
     assert [t["id"] for t in response.json()] == ["t2"]
 
 
@@ -129,7 +136,9 @@ def test_should_combine_assignee_and_project_filters(client, auth_headers, monke
     )
 
     assert response.status_code == 200
-    assert fake.calls == [{"assignee_id": USER_A, "project_id": PROJECT_A}]
+    assert fake.calls == [
+        {"owner_id": TEST_USER_ID, "assignee_id": USER_A, "project_id": PROJECT_A}
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +147,8 @@ def test_should_combine_assignee_and_project_filters(client, auth_headers, monke
 def test_should_return_all_tasks_when_no_filter(client, auth_headers, monkeypatch):
     """GIVEN aucun filtre
     WHEN on appelle GET /tasks
-    THEN la couche donnees est interrogee sans filtre (les deux a None).
+    THEN la couche donnees est interrogee sans filtre responsable/projet (les deux a None),
+      mais TOUJOURS scopee sur le compte connecte (owner_id).
     """
     fake = _fake_repo([_task_record(id="a"), _task_record(id="b")])
     monkeypatch.setattr(SEAM, fake, raising=False)
@@ -146,7 +156,9 @@ def test_should_return_all_tasks_when_no_filter(client, auth_headers, monkeypatc
     response = client.get(TASKS_PATH, headers=auth_headers)
 
     assert response.status_code == 200
-    assert fake.calls == [{"assignee_id": None, "project_id": None}]
+    assert fake.calls == [
+        {"owner_id": TEST_USER_ID, "assignee_id": None, "project_id": None}
+    ]
     assert len(response.json()) == 2
 
 

@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { deleteProjectAction } from "@/lib/api/project-actions";
 import { pluralize, taskCountLabel } from "@/lib/i18n/plural";
 import type { Project } from "@/lib/types/domain";
@@ -31,20 +32,20 @@ export function ProjectCard({
   taskCount: number;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function handleDelete(): void {
-    setError(null);
     startTransition(async () => {
       const result = await deleteProjectAction(project.id);
       if (result.ok) {
         setConfirming(false);
         router.refresh();
+        toast.success(`Projet « ${project.nom} » supprimé.`);
       } else {
-        setError(result.error ?? "La suppression du projet a échoué.");
+        toast.error(result.error ?? "La suppression du projet a échoué.");
       }
     });
   }
@@ -87,10 +88,7 @@ export function ProjectCard({
         </button>
         <button
           type="button"
-          onClick={() => {
-            setError(null);
-            setConfirming(true);
-          }}
+          onClick={() => setConfirming(true)}
           aria-label="Supprimer le projet"
           className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
         >
@@ -108,16 +106,11 @@ export function ProjectCard({
       <ConfirmDialog
         open={confirming}
         title={`Supprimer « ${project.nom} »`}
-        message={
-          error ?? `Cette action est irréversible. ${deletionImpact}`
-        }
+        message={`Cette action est irréversible. ${deletionImpact}`}
         confirmLabel="Supprimer"
         pending={pending}
         onConfirm={handleDelete}
-        onCancel={() => {
-          setConfirming(false);
-          setError(null);
-        }}
+        onCancel={() => setConfirming(false)}
       />
     </div>
   );

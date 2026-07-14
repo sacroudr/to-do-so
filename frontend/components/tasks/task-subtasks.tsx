@@ -4,34 +4,44 @@ import { GripVertical, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type DragEvent, type KeyboardEvent } from "react";
 
+import { useToast } from "@/components/ui/toast";
 import {
   createSubtaskAction,
   deleteSubtaskAction,
   listSubtasksAction,
   reorderSubtasksAction,
-  toggleSubtaskAction,
+  updateSubtaskStatusAction,
 } from "@/lib/api/subtask-actions";
-import type { Subtask } from "@/lib/types/domain";
+import { STATUS_BY_VALUE, TASK_STATUSES } from "@/lib/constants/task";
+import type { Subtask, TaskStatus } from "@/lib/types/domain";
 
 /**
  * Checklist de sous-taches d'une tache (§4.2, extension).
  *
- * Affiche la liste (case a cocher + titre barre une fois coche), un champ d'ajout
- * rapide (validation ENTREE, champ vide apres ajout), la suppression au survol
- * (corbeille en `--color-danger`) et le reordonnancement par glisser-deposer HTML5
- * natif — le MEME outillage que le Kanban, sans dependance supplementaire.
+ * Chaque sous-tache porte desormais un STATUT a 6 valeurs, IDENTIQUE aux taches
+ * principales : un selecteur compact (pastille de couleur de statut + select stylé,
+ * meme palette `STATUS_BY_VALUE.dotClassName` que la vue Liste) remplace l'ancienne case
+ * a cocher. Le titre n'est barre QUE lorsque le statut est « terminé » (`done`),
+ * equivalent de l'ancien `is_done`. Champ d'ajout rapide (ENTREE), suppression au survol
+ * (corbeille `--color-danger`), reordonnancement par glisser-deposer HTML5 natif.
  *
- * Toutes les mutations sont OPTIMISTES (comme le changement de statut Kanban) : l'etat
- * local est mis a jour immediatement puis reconcilie ; en cas d'echec serveur on revient
- * a l'etat precedent et on affiche l'erreur. Un `router.refresh()` apres succes met a
- * jour le badge de progression sur les vues Kanban / Liste.
+ * Toutes les mutations sont OPTIMISTES : l'etat local est mis a jour immediatement puis
+ * reconcilie ; en cas d'echec serveur on revient a l'etat precedent et on affiche un TOAST
+ * d'erreur (comme decide : pas de toast de succes a chaque changement dans la checklist —
+ * le retour visuel du selecteur suffit). Un `router.refresh()` apres succes met a jour le
+ * badge de progression « done/total » (statut « terminé ») sur les vues Kanban / Liste.
  *
- * La liste est chargee paresseusement a l'ouverture (le composant n'est monte que dans
- * la vue detail). Un identifiant `temp-*` marque une sous-tache creee localement mais
- * pas encore persistee : ses controles (cocher / supprimer / glisser) sont desactives
- * le temps de la reconciliation.
+ * Chargement paresseux a l'ouverture (le composant n'est monte que dans la vue detail).
+ * Un identifiant `temp-*` marque une sous-tache creee localement mais pas encore persistee :
+ * ses controles (statut / supprimer / glisser) sont desactives le temps de la reconciliation.
  */
 const TEMP_PREFIX = "temp-";
+
+/** Statut d'une sous-tache nouvellement creee = default DB (« a faire »/todo). */
+const NEW_SUBTASK_STATUS: TaskStatus = "todo";
+
+/** Statut terminal (titre barre + comptage du badge de progression). */
+const DONE_STATUS: TaskStatus = "done";
 
 function isPersisted(subtask: Subtask): boolean {
   return !subtask.id.startsWith(TEMP_PREFIX);
@@ -39,10 +49,10 @@ function isPersisted(subtask: Subtask): boolean {
 
 export function TaskSubtasks({ taskId }: { taskId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [items, setItems] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -61,21 +71,20 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
     };
   }, [taskId]);
 
-  const doneCount = items.filter((s) => s.isDone).length;
+  const doneCount = items.filter((s) => s.statut === DONE_STATUS).length;
 
   function addSubtask(): void {
     const title = newTitle.trim();
     if (!title) return;
 
     setNewTitle(""); // champ vide immediatement apres validation
-    setError(null);
 
     const tempId = `${TEMP_PREFIX}${Date.now()}`;
     const optimistic: Subtask = {
       id: tempId,
       taskId,
       title,
-      isDone: false,
+      statut: NEW_SUBTASK_STATUS,
       position: items.length,
       createdAt: null,
     };
@@ -84,39 +93,40 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
     startTransition(async () => {
       const result = await createSubtaskAction(taskId, title);
       if (result.ok && result.subtask) {
-        // Remplace l'item temporaire par la ligne persistee (id/position reels).
+        // Remplace l'item temporaire par la ligne persistee (id/position/statut reels).
         const created = result.subtask;
         setItems((prev) => prev.map((s) => (s.id === tempId ? created : s)));
         router.refresh();
+        toast.success("Sous-tâche ajoutée.");
       } else {
         setItems((prev) => prev.filter((s) => s.id !== tempId));
-        setError(result.error ?? "L'ajout de la sous-tâche a échoué.");
+        toast.error(result.error ?? "L'ajout de la sous-tâche a échoué.");
       }
     });
   }
 
-  function toggleSubtask(subtask: Subtask): void {
-    if (!isPersisted(subtask)) return;
-    const next = !subtask.isDone;
-    setError(null);
-    setItems((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, isDone: next } : s)));
+  // Le selecteur donne deja un retour visuel immediat (pastille + libelle + titre barre
+  // si « terminé ») : on ne notifie donc que l'ECHEC (avec rollback), pas chaque succes.
+  function changeSubtaskStatus(subtask: Subtask, statut: TaskStatus): void {
+    if (!isPersisted(subtask) || subtask.statut === statut) return;
+    const previous = subtask.statut;
+    setItems((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, statut } : s)));
 
     startTransition(async () => {
-      const result = await toggleSubtaskAction(taskId, subtask.id, next);
+      const result = await updateSubtaskStatusAction(taskId, subtask.id, statut);
       if (result.ok) {
         router.refresh();
       } else {
         setItems((prev) =>
-          prev.map((s) => (s.id === subtask.id ? { ...s, isDone: subtask.isDone } : s)),
+          prev.map((s) => (s.id === subtask.id ? { ...s, statut: previous } : s)),
         );
-        setError(result.error ?? "La mise à jour de la sous-tâche a échoué.");
+        toast.error(result.error ?? "La mise à jour de la sous-tâche a échoué.");
       }
     });
   }
 
   function removeSubtask(subtask: Subtask): void {
     if (!isPersisted(subtask)) return;
-    setError(null);
     const snapshot = items;
     setItems((prev) => prev.filter((s) => s.id !== subtask.id));
 
@@ -124,9 +134,10 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
       const result = await deleteSubtaskAction(taskId, subtask.id);
       if (result.ok) {
         router.refresh();
+        toast.success("Sous-tâche supprimée.");
       } else {
         setItems(snapshot);
-        setError(result.error ?? "La suppression de la sous-tâche a échoué.");
+        toast.error(result.error ?? "La suppression de la sous-tâche a échoué.");
       }
     });
   }
@@ -145,7 +156,6 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
 
-    setError(null);
     const snapshot = items;
     setItems(reordered);
 
@@ -157,7 +167,7 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
         router.refresh();
       } else {
         setItems(snapshot);
-        setError(result.error ?? "Le réordonnancement a échoué.");
+        toast.error(result.error ?? "Le réordonnancement a échoué.");
       }
     });
   }
@@ -183,8 +193,6 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
         ) : null}
       </div>
 
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
-
       {loading ? (
         <p className="text-xs text-muted-foreground">Chargement des sous-tâches…</p>
       ) : (
@@ -193,6 +201,7 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
             const persisted = isPersisted(subtask);
             const isDragged = draggedId === subtask.id;
             const isOver = overId === subtask.id && draggedId !== subtask.id;
+            const isDone = subtask.statut === DONE_STATUS;
             return (
               <li
                 key={subtask.id}
@@ -230,24 +239,37 @@ export function TaskSubtasks({ taskId }: { taskId: string }) {
                   <GripVertical className="size-3.5" />
                 </span>
 
-                <input
-                  type="checkbox"
-                  checked={subtask.isDone}
-                  disabled={!persisted}
-                  onChange={() => toggleSubtask(subtask)}
-                  aria-label={`Marquer « ${subtask.title} » comme ${subtask.isDone ? "à faire" : "terminée"}`}
-                  className="size-4 shrink-0 accent-primary"
-                />
-
                 <span
                   className={`min-w-0 flex-1 truncate text-sm ${
-                    subtask.isDone
-                      ? "text-muted-foreground line-through"
-                      : "text-foreground"
+                    isDone ? "text-muted-foreground line-through" : "text-foreground"
                   }`}
                 >
                   {subtask.title}
                 </span>
+
+                {/*
+                  Selecteur de statut compact (§ statut sous-tache) : pastille de couleur
+                  PLEINE (indice visuel, jamais la couleur seule) + select portant l'unique
+                  libelle. Place juste a GAUCHE de la corbeille. Meme palette de statut que
+                  les taches principales (dotClassName).
+                */}
+                <span
+                  aria-hidden
+                  className={`size-2 shrink-0 rounded-full ${STATUS_BY_VALUE[subtask.statut].dotClassName}`}
+                />
+                <select
+                  value={subtask.statut}
+                  disabled={!persisted}
+                  onChange={(e) => changeSubtaskStatus(subtask, e.target.value as TaskStatus)}
+                  aria-label={`Statut de « ${subtask.title} »`}
+                  className="shrink-0 cursor-pointer rounded-md border border-border bg-background px-1.5 py-0.5 text-xs font-medium outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {TASK_STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
 
                 {persisted ? (
                   <button

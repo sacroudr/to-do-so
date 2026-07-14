@@ -4,7 +4,10 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
+import { useToast } from "@/components/ui/toast";
 import {
   createTeamMemberAction,
   updateTeamMemberAction,
@@ -28,14 +31,11 @@ export interface UserFormDialogProps {
   onClose: () => void;
 }
 
-const FIELD_CLASS =
-  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
-
 export function UserFormDialog({ open, mode, member, onClose }: UserFormDialogProps) {
   const router = useRouter();
+  const toast = useToast();
   const [firstName, setFirstName] = useState(member?.firstName ?? "");
   const [lastName, setLastName] = useState(member?.lastName ?? "");
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Reinitialise les champs a chaque ouverture / changement de cible, via le pattern
@@ -47,7 +47,6 @@ export function UserFormDialog({ open, mode, member, onClose }: UserFormDialogPr
     if (open) {
       setFirstName(member?.firstName ?? "");
       setLastName(member?.lastName ?? "");
-      setError(null);
     }
   }
 
@@ -55,7 +54,6 @@ export function UserFormDialog({ open, mode, member, onClose }: UserFormDialogPr
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    setError(null);
     const values = { firstName: firstName.trim(), lastName: lastName.trim() };
     startTransition(async () => {
       const result =
@@ -64,9 +62,15 @@ export function UserFormDialog({ open, mode, member, onClose }: UserFormDialogPr
           : await updateTeamMemberAction(member!.id, values);
       if (result.ok) {
         router.refresh();
+        const fullName = `${values.firstName} ${values.lastName}`.trim();
+        toast.success(
+          mode === "create"
+            ? `Utilisateur « ${fullName} » créé.`
+            : `Utilisateur « ${fullName} » modifié.`,
+        );
         onClose();
       } else {
-        setError(result.error ?? "Une erreur est survenue.");
+        toast.error(result.error ?? "Une erreur est survenue.");
       }
     });
   }
@@ -89,55 +93,33 @@ export function UserFormDialog({ open, mode, member, onClose }: UserFormDialogPr
 
       <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label htmlFor="user-first-name" className="text-sm font-medium">
-              Prénom <span className="text-danger">*</span>
-            </label>
-            <input
+          <Field label="Prénom" htmlFor="user-first-name" required>
+            <Input
               id="user-first-name"
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="ex. Marie"
-              className={FIELD_CLASS}
             />
-          </div>
+          </Field>
 
-          <div className="space-y-1">
-            <label htmlFor="user-last-name" className="text-sm font-medium">
-              Nom
-            </label>
-            <input
+          <Field label="Nom" htmlFor="user-last-name">
+            <Input
               id="user-last-name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="ex. Dupont"
-              className={FIELD_CLASS}
             />
-          </div>
+          </Field>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
-
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5"
-          >
+          <Button type="button" variant="ghost" onClick={onClose}>
             Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
-          >
-            {pending
-              ? "Enregistrement..."
-              : mode === "create"
-                ? "Créer l'utilisateur"
-                : "Enregistrer"}
-          </button>
+          </Button>
+          <Button type="submit" loading={pending}>
+            {mode === "create" ? "Créer l'utilisateur" : "Enregistrer"}
+          </Button>
         </div>
       </form>
     </Modal>

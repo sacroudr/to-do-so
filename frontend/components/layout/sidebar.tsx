@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   List,
   ListChecks,
+  Loader2,
   LogOut,
   User,
   Users,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import {
   PRIMARY_NAV,
@@ -105,6 +107,7 @@ function initials(name: string): string {
 
 export function Sidebar({ user }: { user?: Profile | null }) {
   const pathname = usePathname();
+  const [signingOut, setSigningOut] = useState(false);
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
@@ -154,14 +157,26 @@ export function Sidebar({ user }: { user?: Profile | null }) {
           ))
         )}
 
-        {/* Deconnexion : POST vers un Route Handler qui invalide la session Supabase. */}
-        <form action="/auth/signout" method="post" className="mt-1">
+        {/* Deconnexion : POST vers un Route Handler qui invalide la session Supabase. Un
+            etat de chargement discret couvre le court instant avant la redirection serveur. */}
+        <form
+          action="/auth/signout"
+          method="post"
+          className="mt-1"
+          onSubmit={() => setSigningOut(true)}
+        >
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+            disabled={signingOut}
+            aria-busy={signingOut}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-60"
           >
-            <LogOut className="size-4 shrink-0" aria-hidden />
-            Se déconnecter
+            {signingOut ? (
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <LogOut className="size-4 shrink-0" aria-hidden />
+            )}
+            {signingOut ? "Déconnexion..." : "Se déconnecter"}
           </button>
         </form>
       </div>

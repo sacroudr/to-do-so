@@ -1,7 +1,7 @@
 /**
  * Squelette de chargement du tableau de bord (§8 — retour visuel immediat pendant
- * les appels API, plutot qu'un ecran fige). Reproduit la structure : 5 cartes de
- * statut + 2 panneaux.
+ * les appels API, plutot qu'un ecran fige). Reproduit la structure : 6 cartes de
+ * statut + 2 panneaux (le bloc « En retard » est conditionnel, non esquisse).
  */
 export default function Loading() {
   return (
@@ -11,8 +11,8 @@ export default function Loading() {
         <div className="h-4 w-72 rounded bg-foreground/5" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-28 rounded-xl border border-border bg-surface" />
         ))}
       </div>

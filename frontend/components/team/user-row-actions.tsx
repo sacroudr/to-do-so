@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { UserFormDialog } from "@/components/team/user-form-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { deleteTeamMemberAction } from "@/lib/api/team-actions";
 import { memberFullName } from "@/lib/team/name";
 import type { TeamMember } from "@/lib/types/domain";
@@ -24,25 +25,25 @@ import type { TeamMember } from "@/lib/types/domain";
  */
 export function UserRowActions({ member }: { member: TeamMember }) {
   const router = useRouter();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const fullName = memberFullName(member);
+
   function handleDelete(): void {
-    setError(null);
     startTransition(async () => {
       const result = await deleteTeamMemberAction(member.id);
       if (result.ok) {
         setConfirming(false);
         router.refresh();
+        toast.success(`Utilisateur « ${fullName} » supprimé.`);
       } else {
-        setError(result.error ?? "La suppression de l'utilisateur a échoué.");
+        toast.error(result.error ?? "La suppression de l'utilisateur a échoué.");
       }
     });
   }
-
-  const fullName = memberFullName(member);
 
   return (
     <div className="flex items-center gap-1">
@@ -56,10 +57,7 @@ export function UserRowActions({ member }: { member: TeamMember }) {
       </button>
       <button
         type="button"
-        onClick={() => {
-          setError(null);
-          setConfirming(true);
-        }}
+        onClick={() => setConfirming(true)}
         aria-label={`Supprimer ${fullName}`}
         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
       >
@@ -76,17 +74,11 @@ export function UserRowActions({ member }: { member: TeamMember }) {
       <ConfirmDialog
         open={confirming}
         title="Supprimer l'utilisateur"
-        message={
-          error ??
-          `Cette action est irréversible. « ${fullName} » sera retiré(e) des tâches dont il/elle est responsable, sans qu'aucune tâche ne soit supprimée.`
-        }
+        message={`Cette action est irréversible. « ${fullName} » sera retiré(e) des tâches dont il/elle est responsable, sans qu'aucune tâche ne soit supprimée.`}
         confirmLabel="Supprimer"
         pending={pending}
         onConfirm={handleDelete}
-        onCancel={() => {
-          setConfirming(false);
-          setError(null);
-        }}
+        onCancel={() => setConfirming(false)}
       />
     </div>
   );

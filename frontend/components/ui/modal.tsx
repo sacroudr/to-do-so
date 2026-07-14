@@ -14,6 +14,15 @@ import { useEffect, useRef } from "react";
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Pile partagee des modales ouvertes, dans l'ordre de montage. Comme chaque modale
+ * ecoute `document` en phase CAPTURE, deux modales empilees (ex. une ConfirmDialog de
+ * suppression ouverte par-dessus un dialogue de detail) recevaient toutes les deux la
+ * touche Echap et se fermaient d'un coup. On ne laisse donc reagir a Echap que la modale
+ * au SOMMET de la pile (la derniere ouverte).
+ */
+const openModalStack: symbol[] = [];
+
 export function Modal({
   open,
   onClose,
@@ -34,6 +43,10 @@ export function Modal({
   useEffect(() => {
     if (!open) return;
 
+    // Identifiant unique de CETTE instance de modale, empile a l'ouverture.
+    const modalId = Symbol("modal");
+    openModalStack.push(modalId);
+
     function focusables(): HTMLElement[] {
       const panel = panelRef.current;
       if (!panel) return [];
@@ -44,6 +57,9 @@ export function Modal({
 
     function onKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape") {
+        // Seule la modale au sommet de la pile se ferme : sans ce garde, Echap fermait
+        // aussi les modales sous-jacentes (elles ecoutent toutes `document`).
+        if (openModalStack[openModalStack.length - 1] !== modalId) return;
         event.stopPropagation();
         onClose();
         return;
@@ -81,6 +97,8 @@ export function Modal({
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
+      const idx = openModalStack.indexOf(modalId);
+      if (idx !== -1) openModalStack.splice(idx, 1);
       document.body.style.overflow = previousOverflow;
     };
   }, [open, onClose]);

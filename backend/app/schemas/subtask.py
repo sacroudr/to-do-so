@@ -8,12 +8,18 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+# Reutilisation stricte de l'enum des taches : une sous-tache a EXACTEMENT les 6 memes
+# statuts que sa tache principale (§4.2, extension). Aucune variante divergente.
+from app.schemas.task import TaskStatus
+
 
 class Subtask(BaseModel):
     id: str
     task_id: str
     title: str
-    is_done: bool = False
+    # Statut de la sous-tache (remplace l'ancien booleen is_done). Defaut « a faire »
+    # (todo) : equivalent de l'ancien is_done=false, aligne sur le default DB de la colonne.
+    statut: TaskStatus = TaskStatus.TODO
     position: int
     created_at: str | None = None
 
@@ -35,12 +41,14 @@ class SubtaskCreate(BaseModel):
 
 
 class SubtaskUpdate(BaseModel):
-    """Mise a jour partielle : cocher/decocher (`is_done`) et/ou renommer (`title`).
+    """Mise a jour partielle : changer le `statut` (parmi les 6) et/ou renommer (`title`).
 
     Les deux champs sont optionnels ; seuls ceux fournis (exclude_unset) sont appliques.
+    Le `statut` est valide contre le MEME enum que les taches : une valeur hors des 6
+    statuts est rejetee en 422 (comme pour `tasks.statut`).
     """
 
-    is_done: bool | None = None
+    statut: TaskStatus | None = None
     title: str | None = Field(default=None, min_length=1, max_length=500)
 
     @field_validator("title")

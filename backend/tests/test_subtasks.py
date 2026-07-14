@@ -29,7 +29,8 @@ def _record(**overrides: Any) -> dict[str, Any]:
         "id": "sub-1",
         "task_id": TASK_ID,
         "title": "Appeler le prestataire",
-        "is_done": False,
+        # Statut a 6 valeurs (remplace l'ancien booleen is_done) ; defaut « a faire ».
+        "statut": "todo",
         "position": 0,
         "created_at": "2026-07-08T09:00:00Z",
     }
@@ -57,7 +58,7 @@ def test_should_require_auth_to_reorder(client):
 
 def test_should_require_auth_to_update(client):
     """GIVEN aucun token WHEN PATCH .../{id} THEN 401 (garde d'auth sur la mutation)."""
-    assert client.patch(f"{SUBS_PATH}/sub-1", json={"is_done": True}).status_code == 401
+    assert client.patch(f"{SUBS_PATH}/sub-1", json={"statut": "done"}).status_code == 401
 
 
 def test_should_require_auth_to_delete(client):
@@ -111,7 +112,8 @@ def test_should_create_subtask(client, auth_headers, monkeypatch):
     # Le titre est nettoye (strip) par le schema avant d'atteindre la couche donnees.
     assert captured["title"] == "Relancer le fournisseur"
     assert body["title"] == "Relancer le fournisseur"
-    assert body["is_done"] is False
+    # Nouvelle sous-tache : statut par defaut « a faire » (equivalent de l'ancien is_done=false).
+    assert body["statut"] == "todo"
 
 
 def test_should_reject_blank_title(client, auth_headers, monkeypatch):
@@ -174,51 +176,69 @@ def test_should_return_404_when_creating_on_missing_task(client, auth_headers, m
 # ===========================================================================
 # Mise a jour (cocher / renommer)
 # ===========================================================================
-def test_should_toggle_done(client, auth_headers, monkeypatch):
-    """GIVEN une sous-tache WHEN PATCH is_done=true THEN 200, le changement est relaye
+def test_should_change_status(client, auth_headers, monkeypatch):
+    """GIVEN une sous-tache WHEN PATCH statut='done' THEN 200, le changement est relaye
     a la couche donnees (exclude_unset) et reflete dans le corps.
     """
     captured: dict[str, Any] = {}
 
     def _update(*, task_id: str, subtask_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         captured.update({"task_id": task_id, "subtask_id": subtask_id, "changes": changes})
-        return _record(id=subtask_id, is_done=changes.get("is_done", False))
+        return _record(id=subtask_id, statut=changes.get("statut", "todo"))
 
     monkeypatch.setattr(UPDATE_SEAM, _update, raising=False)
 
     response = client.patch(
-        f"{SUBS_PATH}/sub-1", json={"is_done": True}, headers=auth_headers
+        f"{SUBS_PATH}/sub-1", json={"statut": "done"}, headers=auth_headers
     )
 
     assert response.status_code == 200
     assert captured["subtask_id"] == "sub-1"
-    # Seul le champ fourni est transmis (pas de title parasite).
-    assert captured["changes"] == {"is_done": True}
-    assert response.json()["is_done"] is True
+    # Seul le champ fourni est transmis (pas de title parasite). La valeur d'enum est
+    # serialisee en sa chaine (« done ») pour la couche donnees.
+    assert captured["changes"] == {"statut": "done"}
+    assert response.json()["statut"] == "done"
 
 
-def test_should_toggle_done_off(client, auth_headers, monkeypatch):
-    """GIVEN une sous-tache cochee WHEN PATCH is_done=false THEN 200, la bascule dans
-    l'autre sens (true -> false) est relayee telle quelle, et SEUL `is_done` est transmis
-    (exclude_unset : pas de `title` parasite injecte a None).
+def test_should_change_status_to_any_of_the_six(client, auth_headers, monkeypatch):
+    """GIVEN une sous-tache WHEN PATCH statut='in_progress' THEN 200, un statut
+    intermediaire (pas seulement done/todo) est accepte et relaye tel quel — le contrat
+    couvre bien les 6 memes valeurs que les taches.
     """
     captured: dict[str, Any] = {}
 
     def _update(*, task_id: str, subtask_id: str, changes: dict[str, Any]) -> dict[str, Any]:
-        captured.update({"task_id": task_id, "subtask_id": subtask_id, "changes": changes})
-        return _record(id=subtask_id, is_done=changes.get("is_done", True))
+        captured.update({"changes": changes})
+        return _record(id=subtask_id, statut=changes.get("statut", "todo"))
 
     monkeypatch.setattr(UPDATE_SEAM, _update, raising=False)
 
     response = client.patch(
-        f"{SUBS_PATH}/sub-1", json={"is_done": False}, headers=auth_headers
+        f"{SUBS_PATH}/sub-1", json={"statut": "in_progress"}, headers=auth_headers
     )
 
     assert response.status_code == 200
-    assert captured["subtask_id"] == "sub-1"
-    # exclude_unset : le decochage ne transmet QUE is_done=False (aucun title=None).
-    assert captured["changes"] == {"is_done": False}
-    assert response.json()["is_done"] is False
+    assert captured["changes"] == {"statut": "in_progress"}
+    assert response.json()["statut"] == "in_progress"
+
+
+def test_should_reject_invalid_status(client, auth_headers, monkeypatch):
+    """GIVEN une valeur de statut hors des 6 WHEN PATCH THEN 422 (validation enum), sans
+    persistance : meme contrainte que `tasks.statut` (reutilisation de TaskStatus).
+    """
+    called = {"update": False}
+    monkeypatch.setattr(
+        UPDATE_SEAM,
+        lambda **_: called.__setitem__("update", True) or _record(),
+        raising=False,
+    )
+
+    response = client.patch(
+        f"{SUBS_PATH}/sub-1", json={"statut": "pas_un_statut"}, headers=auth_headers
+    )
+
+    assert response.status_code == 422
+    assert called["update"] is False
 
 
 def test_should_return_404_when_updating_missing_subtask(client, auth_headers, monkeypatch):
@@ -226,7 +246,7 @@ def test_should_return_404_when_updating_missing_subtask(client, auth_headers, m
     monkeypatch.setattr(UPDATE_SEAM, lambda **_: None, raising=False)
 
     response = client.patch(
-        f"{SUBS_PATH}/nope", json={"is_done": True}, headers=auth_headers
+        f"{SUBS_PATH}/nope", json={"statut": "done"}, headers=auth_headers
     )
 
     assert response.status_code == 404
@@ -340,15 +360,15 @@ def test_integration_subtask_lifecycle_via_api(client, auth_headers):
         assert listing.status_code == 200
         assert [s["id"] for s in listing.json()] == [first_id, second_id]
 
-        # Cocher puis decocher (les deux sens sont bien persistes).
+        # Changer le statut puis revenir (les deux sens sont bien persistes).
         checked = client.patch(
-            f"{subs_path}/{first_id}", json={"is_done": True}, headers=auth_headers
+            f"{subs_path}/{first_id}", json={"statut": "done"}, headers=auth_headers
         )
-        assert checked.status_code == 200 and checked.json()["is_done"] is True
+        assert checked.status_code == 200 and checked.json()["statut"] == "done"
         unchecked = client.patch(
-            f"{subs_path}/{first_id}", json={"is_done": False}, headers=auth_headers
+            f"{subs_path}/{first_id}", json={"statut": "todo"}, headers=auth_headers
         )
-        assert unchecked.json()["is_done"] is False
+        assert unchecked.json()["statut"] == "todo"
 
         # Reordonner : l'ordre demande devient l'ordre stocke (par position).
         reordered = client.put(

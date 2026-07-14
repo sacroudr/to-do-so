@@ -33,16 +33,20 @@ def list_tasks(
         False, description="true = uniquement les taches archivees (done > 10 min)"
     ),
 ) -> list[Task]:
-    """Liste les taches de l'equipe, filtrees par responsable / projet (§4.6).
+    """Liste les taches DU COMPTE CONNECTE, filtrees par responsable / projet (§4.6).
 
-    Par defaut : vue ACTIVE (exclut les taches archivees, point 4). `archived=true`
-    renvoie EXACTEMENT les taches archivees (page Archive).
+    Isolation par utilisateur : chaque compte ne voit que SES propres taches (owner_id =
+    sub du JWT). Par defaut : vue ACTIVE (exclut les taches archivees, point 4).
+    `archived=true` renvoie EXACTEMENT les taches archivees du compte (page Archive).
     """
-    _ = user
     if archived:
-        records = list_archived_task_records(assignee_id=assignee, project_id=project)
+        records = list_archived_task_records(
+            owner_id=user.id, assignee_id=assignee, project_id=project
+        )
     else:
-        records = list_task_records(assignee_id=assignee, project_id=project)
+        records = list_task_records(
+            owner_id=user.id, assignee_id=assignee, project_id=project
+        )
     return [Task(**record) for record in records]
 
 
@@ -55,11 +59,15 @@ def create_task(payload: TaskCreate, user: CurrentUser) -> Task:
 
 @router.patch("/{task_id}")
 def update_task(task_id: str, payload: TaskUpdate, user: CurrentUser) -> Task:
-    """Modifie / reassigne / change le statut d'une tache ; 404 si introuvable (§4.2)."""
-    _ = user
+    """Modifie / reassigne / change le statut d'une tache DU COMPTE CONNECTE ; 404 sinon.
+
+    Isolation par utilisateur : on ne peut modifier qu'une tache que l'on a creee (§4.2) ;
+    une tache d'un autre compte est traitee comme introuvable (404, sans fuite d'existence).
+    """
     record = update_task_record(
         task_id=task_id,
         changes=payload.model_dump(mode="json", exclude_unset=True),
+        owner_id=user.id,
     )
     if record is None:
         raise NotFoundError("Tache introuvable.")
@@ -68,7 +76,10 @@ def update_task(task_id: str, payload: TaskUpdate, user: CurrentUser) -> Task:
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: str, user: CurrentUser) -> Response:
-    """Supprime une tache ; 404 si introuvable. Ouvert a tout membre (§4.2)."""
+    """Supprime une tache DU COMPTE CONNECTE ; 404 si introuvable ou non possedee (§4.2).
+
+    Isolation par utilisateur : on ne peut supprimer que ses propres taches (owner_id =
+    sub du JWT). Ceci remplace l'ancienne regle « tout membre supprime toute tache »."""
     deleted = delete_task_record(task_id=task_id, user_id=user.id)
     if not deleted:
         raise NotFoundError("Tache introuvable.")

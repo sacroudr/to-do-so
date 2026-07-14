@@ -16,14 +16,14 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/supabase/server";
-import type { Subtask } from "@/lib/types/domain";
+import type { Subtask, TaskStatus } from "@/lib/types/domain";
 
 /** Forme brute d'une sous-tache renvoyee par l'API (`schemas.subtask.Subtask`). */
 interface SubtaskDTO {
   id: string;
   task_id: string;
   title: string;
-  is_done: boolean;
+  statut: TaskStatus;
   position: number;
   created_at: string | null;
 }
@@ -52,7 +52,7 @@ function toSubtask(dto: SubtaskDTO): Subtask {
     id: dto.id,
     taskId: dto.task_id,
     title: dto.title,
-    isDone: dto.is_done,
+    statut: dto.statut,
     position: dto.position,
     createdAt: dto.created_at,
   };
@@ -95,18 +95,18 @@ export async function createSubtaskAction(
   }
 }
 
-/** Coche / decoche une sous-tache. */
-export async function toggleSubtaskAction(
+/** Change le statut d'une sous-tache (parmi les 6, comme une tache principale). */
+export async function updateSubtaskStatusAction(
   taskId: string,
   subtaskId: string,
-  isDone: boolean,
+  statut: TaskStatus,
 ): Promise<SubtaskActionResult> {
   try {
     const accessToken = await getAccessToken();
     await apiFetch(`/api/v1/tasks/${taskId}/subtasks/${subtaskId}`, {
       method: "PATCH",
       accessToken,
-      body: { is_done: isDone },
+      body: { statut },
     });
     revalidateBoard();
     return { ok: true };

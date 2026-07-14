@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { Button } from "@/components/ui/button";
 import type { Project } from "@/lib/types/domain";
 
 /**
@@ -15,14 +16,14 @@ export function EditProjectButton({ project }: { project: Project }) {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        leftIcon={<Pencil className="size-4" />}
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
       >
-        <Pencil className="size-4" />
         Modifier
-      </button>
+      </Button>
 
       <ProjectFormDialog
         open={open}

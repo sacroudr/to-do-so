@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { Button } from "@/components/ui/button";
 import type { Project, TeamMember } from "@/lib/types/domain";
 
 /**
@@ -25,14 +26,13 @@ export function NewTaskButton({
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        leftIcon={<Plus className="size-4" />}
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
       >
-        <Plus className="size-4" />
         Nouvelle tâche
-      </button>
+      </Button>
 
       <TaskFormDialog
         open={open}

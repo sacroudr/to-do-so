@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { UserFormDialog } from "@/components/team/user-form-dialog";
+import { Button } from "@/components/ui/button";
 
 /**
  * Bouton d'ajout d'une personne assignable (point 2) : ouvre le formulaire de creation.
@@ -14,14 +15,13 @@ export function NewUserButton() {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        leftIcon={<Plus className="size-4" />}
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
       >
-        <Plus className="size-4" />
         Nouvel utilisateur
-      </button>
+      </Button>
 
       <UserFormDialog open={open} mode="create" onClose={() => setOpen(false)} />
     </>

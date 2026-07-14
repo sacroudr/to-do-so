@@ -1,10 +1,12 @@
 "use client";
 
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { safeInternalPath } from "@/lib/auth/safe-path";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -16,9 +18,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  * hachage et l'emission du JWT cote Supabase (§8 Securite). Il n'y a PAS d'inscription
  * libre — les comptes sont crees en amont pour l'equipe (§4.1).
  */
-const FIELD_CLASS =
-  "w-full rounded-lg border border-border bg-background py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,7 +67,7 @@ function LoginForm() {
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          <Input
             id="email"
             type="email"
             required
@@ -76,7 +75,7 @@ function LoginForm() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`${FIELD_CLASS} pl-9 pr-3`}
+            className="pl-9 pr-3"
           />
         </div>
       </div>
@@ -98,14 +97,14 @@ function LoginForm() {
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          <Input
             id="password"
             type={showPassword ? "text" : "password"}
             required
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`${FIELD_CLASS} pl-9 pr-10`}
+            className="pl-9 pr-10"
           />
           <button
             type="button"
@@ -128,20 +127,9 @@ function LoginForm() {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            Connexion...
-          </>
-        ) : (
-          "Se connecter"
-        )}
-      </button>
+      <Button type="submit" loading={loading} className="w-full">
+        Se connecter
+      </Button>
     </form>
   );
 }

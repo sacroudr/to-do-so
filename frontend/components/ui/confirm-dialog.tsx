@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 
 /**
@@ -45,22 +46,12 @@ export function ConfirmDialog({
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            data-autofocus
-            onClick={onCancel}
-            className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5"
-          >
+          <Button type="button" variant="ghost" data-autofocus onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={pending}
-            className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {pending ? "Suppression..." : confirmLabel}
-          </button>
+          </Button>
+          <Button type="button" variant="danger" loading={pending} onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
         </div>
       </div>
     </Modal>

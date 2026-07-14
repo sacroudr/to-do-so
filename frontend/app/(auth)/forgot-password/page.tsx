@@ -1,9 +1,11 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -12,9 +14,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  * Delegue a Supabase Auth (resetPasswordForEmail). Meme direction visuelle que l'ecran
  * de connexion (champ a icone, bouton primaire, etats de chargement / succes styles).
  */
-const FIELD_CLASS =
-  "w-full rounded-lg border border-border bg-background py-2 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
-
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -54,7 +53,7 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <div className="space-y-4 text-center">
-        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-status-done/10 text-status-done">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success/10 text-success">
           <CheckCircle2 className="size-6" aria-hidden />
         </span>
         <div className="space-y-1">
@@ -94,7 +93,7 @@ export default function ForgotPasswordPage() {
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          <Input
             id="email"
             type="email"
             required
@@ -102,7 +101,7 @@ export default function ForgotPasswordPage() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`${FIELD_CLASS} pl-9 pr-3`}
+            className="pl-9 pr-3"
           />
         </div>
       </div>
@@ -117,20 +116,9 @@ export default function ForgotPasswordPage() {
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            Envoi...
-          </>
-        ) : (
-          "Envoyer le lien de réinitialisation"
-        )}
-      </button>
+      <Button type="submit" loading={loading} className="w-full">
+        Envoyer le lien de réinitialisation
+      </Button>
 
       <p className="text-center">
         <Link

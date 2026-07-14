@@ -13,6 +13,8 @@ export interface StatusMeta {
   /** Classes Tailwind pour les pastilles / colonnes Kanban. */
   badgeClassName: string;
   columnClassName: string;
+  /** Pastille de couleur PLEINE (indice visuel du statut a cote d'un controle, vue Liste). */
+  dotClassName: string;
 }
 
 /**
@@ -27,36 +29,42 @@ export const TASK_STATUSES: readonly StatusMeta[] = [
     label: "À planifier",
     badgeClassName: "bg-status-plan/15 text-status-plan",
     columnClassName: "border-status-plan/40",
+    dotClassName: "bg-status-plan",
   },
   {
     value: "todo",
     label: "À faire",
     badgeClassName: "bg-status-todo/15 text-status-todo",
     columnClassName: "border-status-todo/40",
+    dotClassName: "bg-status-todo",
   },
   {
     value: "in_progress",
     label: "En cours",
     badgeClassName: "bg-status-progress/15 text-status-progress",
     columnClassName: "border-status-progress/40",
+    dotClassName: "bg-status-progress",
   },
   {
     value: "a_tester",
     label: "À tester",
     badgeClassName: "bg-status-test/15 text-status-test",
     columnClassName: "border-status-test/40",
+    dotClassName: "bg-status-test",
   },
   {
     value: "a_corriger",
     label: "À corriger",
     badgeClassName: "bg-status-fix/15 text-status-fix",
     columnClassName: "border-status-fix/40",
+    dotClassName: "bg-status-fix",
   },
   {
     value: "done",
     label: "Terminé",
     badgeClassName: "bg-status-done/15 text-status-done",
     columnClassName: "border-status-done/40",
+    dotClassName: "bg-status-done",
   },
 ] as const;
 

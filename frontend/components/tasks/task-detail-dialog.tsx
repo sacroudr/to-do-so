@@ -4,12 +4,13 @@ import { Pencil, X } from "lucide-react";
 
 import { TaskAttachments } from "@/components/tasks/task-attachments";
 import { TaskSubtasks } from "@/components/tasks/task-subtasks";
+import { Button } from "@/components/ui/button";
 import { DueDate } from "@/components/ui/due-date";
 import { Modal } from "@/components/ui/modal";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { pluralize } from "@/lib/i18n/plural";
-import { memberFullName } from "@/lib/team/name";
+import { assigneesLabel } from "@/lib/team/name";
 import type { Task } from "@/lib/types/domain";
 
 /**
@@ -56,7 +57,7 @@ export function TaskDetailDialog({
 }) {
   if (!open || task === null) return null;
 
-  const assigneeNames = task.assignees.map(memberFullName).join(", ");
+  const assigneeNames = assigneesLabel(task.assignees);
 
   return (
     <Modal open={open} onClose={onClose} labelledBy="task-detail-title" className="max-w-lg">
@@ -84,7 +85,7 @@ export function TaskDetailDialog({
         <dl className="grid grid-cols-2 gap-4">
           <Field label="Projet">{task.project?.nom ?? "Sans projet"}</Field>
           <Field label={pluralize(task.assignees.length, "Responsable", "Responsables")}>
-            {assigneeNames || "Non assigné"}
+            {assigneeNames}
           </Field>
           <Field label="Échéance">
             <DueDate due={task.dueDate} statut={task.statut} className="text-sm" />
@@ -117,21 +118,16 @@ export function TaskDetailDialog({
       </div>
 
       <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5"
-        >
+        <Button type="button" variant="ghost" onClick={onClose}>
           Fermer
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          leftIcon={<Pencil className="size-4" />}
           onClick={() => onEdit(task)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
         >
-          <Pencil className="size-4" />
           Modifier
-        </button>
+        </Button>
       </footer>
     </Modal>
   );

@@ -16,9 +16,14 @@ Deux niveaux :
 
   CONTRAT ASSUME (a confirmer — voir « Points a clarifier ») :
     * POST   /api/v1/tasks            -> create_task_record(data: dict, created_by: str) -> dict
-    * PATCH  /api/v1/tasks/{task_id}  -> update_task_record(task_id: str, changes: dict) -> dict | None
+    * PATCH  /api/v1/tasks/{task_id}  -> update_task_record(task_id: str, changes: dict, owner_id: str) -> dict | None
     * DELETE /api/v1/tasks/{task_id}  -> delete_task_record(task_id: str, user_id: str) -> bool
       (les seams sont importees dans le module de route ; None/False -> 404).
+
+ISOLATION PAR UTILISATEUR : la modification et la suppression sont scopees au compte
+connecte (`owner_id` / `user_id` = createur). Un compte ne peut agir que sur SES taches ;
+une tache d'un autre compte se comporte comme introuvable (404). Ceci REMPLACE l'ancienne
+regle « tout membre agit sur toute tache ».
 """
 from __future__ import annotations
 
@@ -223,7 +228,7 @@ def test_should_change_status(client, auth_headers, monkeypatch):
     WHEN on PATCH /tasks/{id} avec un nouveau statut
     THEN la couche donnees est mise a jour et 200 reflete le nouveau statut (§4.2).
     """
-    def _update(task_id: str, changes: dict[str, Any]) -> dict[str, Any]:
+    def _update(task_id: str, changes: dict[str, Any], owner_id: str) -> dict[str, Any]:
         return {"id": task_id, **_full_payload(**changes)}
 
     monkeypatch.setattr(UPDATE_SEAM, _update, raising=False)
@@ -241,8 +246,9 @@ def test_should_reassign_task(client, auth_headers, monkeypatch):
     """
     captured: dict[str, Any] = {}
 
-    def _update(task_id: str, changes: dict[str, Any]) -> dict[str, Any]:
+    def _update(task_id: str, changes: dict[str, Any], owner_id: str) -> dict[str, Any]:
         captured.update(changes)
+        captured["owner_id"] = owner_id
         return {"id": task_id, **_full_payload(assignee_ids=changes.get("assignee_ids", []))}
 
     monkeypatch.setattr(UPDATE_SEAM, _update, raising=False)
@@ -253,6 +259,8 @@ def test_should_reassign_task(client, auth_headers, monkeypatch):
 
     assert response.status_code == 200
     assert captured["assignee_ids"] == [USER_2]
+    # Isolation : la couche donnees recoit le compte connecte comme proprietaire scope.
+    assert captured["owner_id"] == TEST_USER_ID
     assert response.json()["assignee_ids"] == [USER_2]
 
 
@@ -261,7 +269,9 @@ def test_should_return_404_when_updating_unknown_task(client, auth_headers, monk
     WHEN on PATCH /tasks/{id}
     THEN 404 (la couche donnees renvoie None).
     """
-    monkeypatch.setattr(UPDATE_SEAM, lambda task_id, changes: None, raising=False)
+    monkeypatch.setattr(
+        UPDATE_SEAM, lambda task_id, changes, owner_id: None, raising=False
+    )
 
     response = client.patch(f"{TASKS_PATH}/inconnu", json={"statut": "done"}, headers=auth_headers)
 
@@ -288,21 +298,28 @@ def test_should_delete_task(client, auth_headers, monkeypatch):
     assert captured == {"task_id": "task-1", "user_id": TEST_USER_ID}
 
 
-def test_should_allow_any_member_to_delete_any_task(client, auth_headers, monkeypatch):
-    """GIVEN un membre de l'equipe qui n'est NI l'auteur NI un responsable de la tache
+def test_should_return_404_when_deleting_a_task_of_another_account(
+    client, auth_headers, monkeypatch
+):
+    """ISOLATION PAR UTILISATEUR (remplace l'ancienne regle « tout membre supprime toute
+    tache »).
+
+    GIVEN une tache appartenant a un AUTRE compte (le repo, scope par `created_by`, ne
+      matche donc aucune ligne et renvoie False)
     WHEN on DELETE /tasks/{id}
-    THEN 204 : n'importe quel membre peut supprimer n'importe quelle tache (regle
-      confirmee, requirements.md §4.2 / §3). Il n'existe donc AUCUN chemin 403.
+    THEN 404 — indistinct d'un id inexistant : on ne divulgue pas l'existence de la tache
+      d'un autre compte, et il n'existe toujours AUCUN chemin 403.
     """
 
     def _delete(task_id: str, user_id: str) -> bool:
-        return True  # aucune restriction auteur/responsable
+        # La tache n'appartient pas a `user_id` -> le filtre created_by ne matche rien.
+        return False
 
     monkeypatch.setattr(DELETE_SEAM, _delete, raising=False)
 
     response = client.delete(f"{TASKS_PATH}/tache-d-un-autre", headers=auth_headers)
 
-    assert response.status_code == 204
+    assert response.status_code == 404
     assert response.status_code != 403
 
 

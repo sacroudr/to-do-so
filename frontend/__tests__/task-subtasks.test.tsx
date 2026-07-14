@@ -5,20 +5,38 @@
  * C'est un Client Component SYNCHRONE (« use client », hooks) -> testable en Vitest +
  * RTL en mockant les Server Actions (`@/lib/api/subtask-actions`) et `next/navigation`.
  * On exerce la LOGIQUE d'interaction OPTIMISTE : chargement paresseux, ajout par
- * ENTREE, cochage (+ compteur d'en-tete), suppression, et ROLLBACK sur echec serveur.
+ * ENTREE, CHANGEMENT DE STATUT (+ compteur d'en-tete « terminé »), suppression, et
+ * ROLLBACK sur echec serveur.
+ *
+ * ⚠️ MISE A JOUR (statut des sous-taches) : la case a cocher booleenne a ete remplacee
+ * par un SELECTEUR de statut a 6 valeurs (comme les taches). Les assertions « checkbox /
+ * toBeChecked » sont donc remplacees par des assertions sur le `<select>` (role combobox,
+ * valeur = statut) et le titre barre UNIQUEMENT quand le statut est « done » (terminé).
  *
  * ⚠️ Non couvert ici (documente) :
  *   - Le glisser-deposer HTML5 natif est fragile en jsdom ; on TENTE un test (voir
  *     « reordonnancement ») mais la garantie robuste vit en E2E (Playwright, e2e/).
- *   - La mise a jour LIVE du badge de carte apres cochage depuis le detail dependant de
- *     `router.refresh()` + refetch serveur -> flux inter-composants, couvert en E2E. On
- *     verifie seulement ici l'appel a `router.refresh()` et le compteur LOCAL.
+ *   - La mise a jour LIVE du badge de carte apres changement de statut depuis le detail
+ *     dependant de `router.refresh()` + refetch serveur -> couvert en E2E. On verifie
+ *     seulement ici l'appel a `router.refresh()` et le compteur LOCAL.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TaskSubtasks } from "@/components/tasks/task-subtasks";
+import { ToastProvider } from "@/components/ui/toast";
 import type { Subtask } from "@/lib/types/domain";
+
+/**
+ * `TaskSubtasks` consomme `useToast` (feedback global §8) -> tout rendu doit se faire sous
+ * un `<ToastProvider>` (monte dans la coquille applicative reelle). Les erreurs, jadis
+ * inline, s'affichent desormais dans un toast : `screen.getByText(...)` les retrouve
+ * puisque le toast est rendu dans l'arbre du provider.
+ */
+function renderWithToast(ui: ReactElement) {
+  return render(ui, { wrapper: ToastProvider });
+}
 
 // `router.refresh` doit etre observable -> hoiste avant le mock de next/navigation.
 const { mockRefresh } = vi.hoisted(() => ({ mockRefresh: vi.fn() }));
@@ -30,7 +48,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api/subtask-actions", () => ({
   listSubtasksAction: vi.fn(),
   createSubtaskAction: vi.fn(),
-  toggleSubtaskAction: vi.fn(),
+  updateSubtaskStatusAction: vi.fn(),
   deleteSubtaskAction: vi.fn(),
   reorderSubtasksAction: vi.fn(),
 }));
@@ -40,7 +58,7 @@ import {
   deleteSubtaskAction,
   listSubtasksAction,
   reorderSubtasksAction,
-  toggleSubtaskAction,
+  updateSubtaskStatusAction,
 } from "@/lib/api/subtask-actions";
 
 const TASK_ID = "t1";
@@ -50,7 +68,8 @@ function sub(overrides: Partial<Subtask> = {}): Subtask {
     id: "s1",
     taskId: TASK_ID,
     title: "Sous-tache",
-    isDone: false,
+    // Defaut « a faire » (= ancien is_done=false). Les tests « terminé » surchargent en "done".
+    statut: "todo",
     position: 0,
     createdAt: null,
     ...overrides,
@@ -72,26 +91,25 @@ beforeEach(() => {
 
 describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
   // -------------------------------------------------------------------------
-  // Chargement initial : etat visuel selon is_done
+  // Chargement initial : etat visuel selon le STATUT (barre si « done »)
   // -------------------------------------------------------------------------
   it("should_render_loaded_items_with_done_state", async () => {
-    // GIVEN une sous-tache faite et une a faire
+    // GIVEN une sous-tache terminee et une a faire
     vi.mocked(listSubtasksAction).mockResolvedValue([
-      sub({ id: "s1", title: "Terminee", isDone: true, position: 0 }),
-      sub({ id: "s2", title: "A faire", isDone: false, position: 1 }),
+      sub({ id: "s1", title: "Terminee", statut: "done", position: 0 }),
+      sub({ id: "s2", title: "A faire", statut: "todo", position: 1 }),
     ]);
     // WHEN le composant se monte (chargement paresseux)
-    render(<TaskSubtasks taskId={TASK_ID} />);
-    // THEN l'item fait est barre (line-through) et sa case cochee ;
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
+    // THEN l'item « done » est barre (line-through), l'item « todo » ne l'est pas ;
     const done = await screen.findByText("Terminee");
     expect(done).toHaveClass("line-through");
     const todo = screen.getByText("A faire");
     expect(todo).not.toHaveClass("line-through");
-    // ET les cases refletent l'etat (ordre DOM = ordre des items)
-    const checkboxes = screen.getAllByRole("checkbox");
-    expect(checkboxes[0]).toBeChecked(); // Terminee
-    expect(checkboxes[1]).not.toBeChecked(); // A faire
-    // ET le compteur d'en-tete indique 1/2
+    // ET les selecteurs de statut refletent l'etat (valeur = statut courant)
+    expect(screen.getByLabelText("Statut de « Terminee »")).toHaveValue("done");
+    expect(screen.getByLabelText("Statut de « A faire »")).toHaveValue("todo");
+    // ET le compteur d'en-tete indique 1/2 (une seule « terminée »)
     expect(screen.getByText("1/2")).toBeInTheDocument();
     // ET la liste a ete chargee pour CETTE tache
     expect(listSubtasksAction).toHaveBeenCalledWith(TASK_ID);
@@ -104,7 +122,7 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
     // GIVEN aucune sous-tache
     vi.mocked(listSubtasksAction).mockResolvedValue([]);
     // WHEN le composant se monte
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await waitForLoaded();
     // THEN l'en-tete et le champ d'ajout sont presents
     expect(screen.getByRole("heading", { name: /Sous-tâches/i })).toBeInTheDocument();
@@ -125,7 +143,7 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
     ]);
     // La creation reste EN COURS : prouve que l'item apparait sans attendre la reponse.
     vi.mocked(createSubtaskAction).mockReturnValue(new Promise<never>(() => {}));
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await screen.findByText("Existante");
 
     // WHEN on saisit un titre puis ENTREE
@@ -144,7 +162,7 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
 
   it("should_not_add_when_title_is_blank_or_whitespace", async () => {
     // GIVEN une checklist vide
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await waitForLoaded();
     const input = screen.getByLabelText("Ajouter une sous-tâche");
 
@@ -160,30 +178,29 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Cochage : appel + compteur local + etat reflete a l'ok
+  // Changement de statut : appel + compteur local + titre barre a « done »
   // -------------------------------------------------------------------------
-  it("should_toggle_check_update_counter_and_call_action", async () => {
-    // GIVEN deux sous-taches non faites
+  it("should_change_status_update_counter_and_call_action", async () => {
+    // GIVEN deux sous-taches « a faire »
     vi.mocked(listSubtasksAction).mockResolvedValue([
-      sub({ id: "s1", title: "A", isDone: false, position: 0 }),
-      sub({ id: "s2", title: "B", isDone: false, position: 1 }),
+      sub({ id: "s1", title: "A", statut: "todo", position: 0 }),
+      sub({ id: "s2", title: "B", statut: "todo", position: 1 }),
     ]);
-    vi.mocked(toggleSubtaskAction).mockResolvedValue({ ok: true });
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    vi.mocked(updateSubtaskStatusAction).mockResolvedValue({ ok: true });
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await screen.findByText("A");
     expect(screen.getByText("0/2")).toBeInTheDocument();
 
-    // WHEN on coche la premiere
-    const checkbox = screen.getAllByRole("checkbox")[0];
-    fireEvent.click(checkbox);
+    // WHEN on passe la premiere a « Terminé »
+    const select = screen.getByLabelText("Statut de « A »");
+    fireEvent.change(select, { target: { value: "done" } });
 
-    // THEN l'action recoit (taskId, id, next=true), le compteur passe a 1/2, case cochee
-    expect(toggleSubtaskAction).toHaveBeenCalledWith(TASK_ID, "s1", true);
+    // THEN l'action recoit (taskId, id, "done"), le compteur passe a 1/2, le titre est barre
+    expect(updateSubtaskStatusAction).toHaveBeenCalledWith(TASK_ID, "s1", "done");
     expect(screen.getByText("1/2")).toBeInTheDocument();
-    expect(checkbox).toBeChecked();
+    expect(screen.getByText("A")).toHaveClass("line-through");
     // ET a l'ok, l'etat est conserve et le tableau est rafraichi (badge de carte)
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
-    expect(screen.getByText("A")).toHaveClass("line-through");
   });
 
   // -------------------------------------------------------------------------
@@ -195,7 +212,7 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
       sub({ id: "s1", title: "Supprimable", position: 0 }),
     ]);
     vi.mocked(deleteSubtaskAction).mockResolvedValue({ ok: true });
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await screen.findByText("Supprimable");
 
     // WHEN on clique la corbeille (reperee par son aria-label)
@@ -214,30 +231,33 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
   // -------------------------------------------------------------------------
   // Robustesse : rollback + message d'erreur sur echec serveur
   // -------------------------------------------------------------------------
-  it("should_rollback_optimistic_toggle_and_show_error_on_failure", async () => {
-    // GIVEN une sous-tache et un serveur qui refuse la mise a jour
+  it("should_rollback_optimistic_status_and_show_error_on_failure", async () => {
+    // GIVEN une sous-tache « a faire » et un serveur qui refuse la mise a jour
     vi.mocked(listSubtasksAction).mockResolvedValue([
-      sub({ id: "s1", title: "A", isDone: false, position: 0 }),
+      sub({ id: "s1", title: "A", statut: "todo", position: 0 }),
     ]);
-    vi.mocked(toggleSubtaskAction).mockResolvedValue({
+    vi.mocked(updateSubtaskStatusAction).mockResolvedValue({
       ok: false,
       error: "La mise à jour de la sous-tâche a échoué.",
     });
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await screen.findByText("A");
-    const checkbox = screen.getAllByRole("checkbox")[0];
+    const select = screen.getByLabelText("Statut de « A »");
 
-    // WHEN on coche (optimisme immediat)
-    fireEvent.click(checkbox);
-    expect(checkbox).toBeChecked();
+    // WHEN on passe a « Terminé » (optimisme immediat : titre barre)
+    fireEvent.change(select, { target: { value: "done" } });
+    expect(updateSubtaskStatusAction).toHaveBeenCalledWith(TASK_ID, "s1", "done");
+    expect(screen.getByText("A")).toHaveClass("line-through");
 
-    // THEN a l'echec : l'optimisme est annule ET le message d'erreur s'affiche
+    // THEN a l'echec : l'optimisme est annule (retour a « todo », plus barre) ET le
+    // message d'erreur s'affiche (dans le toast global)
     await waitFor(() =>
       expect(
         screen.getByText("La mise à jour de la sous-tâche a échoué."),
       ).toBeInTheDocument(),
     );
-    expect(checkbox).not.toBeChecked();
+    expect(screen.getByText("A")).not.toHaveClass("line-through");
+    expect(select).toHaveValue("todo");
     // ET on NE rafraichit PAS le tableau sur echec (pas de faux positif visuel)
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -255,7 +275,7 @@ describe("TaskSubtasks — checklist optimiste (§4.2)", () => {
       sub({ id: "c", title: "Gamma", position: 2 }),
     ]);
     vi.mocked(reorderSubtasksAction).mockResolvedValue({ ok: true });
-    render(<TaskSubtasks taskId={TASK_ID} />);
+    renderWithToast(<TaskSubtasks taskId={TASK_ID} />);
     await screen.findByText("Alpha");
 
     const items = screen.getAllByTestId("subtask-item");

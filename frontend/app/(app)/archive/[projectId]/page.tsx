@@ -57,7 +57,12 @@ export default async function ArchiveProjectPage(
           Aucune tâche archivée pour ce projet.
         </div>
       ) : (
-        <TaskTable tasks={scopedTasks} projects={projects} members={members} />
+        <TaskTable
+          tasks={scopedTasks}
+          projects={projects}
+          members={members}
+          context="archive"
+        />
       )}
     </div>
   );

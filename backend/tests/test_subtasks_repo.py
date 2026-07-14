@@ -131,7 +131,7 @@ def test_create_appends_at_end_with_max_position_plus_one(monkeypatch):
             return [{"position": 4}]
         if chain["op"] == "insert":
             payload = chain["payload"]
-            return [{**payload, "id": "sub-new", "is_done": False, "created_at": "t"}]
+            return [{**payload, "id": "sub-new", "statut": "todo", "created_at": "t"}]
         return []
 
     fake = _install(monkeypatch, handler)
@@ -156,7 +156,7 @@ def test_create_uses_position_zero_when_checklist_empty(monkeypatch):
         if chain["op"] == "select":
             return []  # checklist vide
         if chain["op"] == "insert":
-            return [{**chain["payload"], "id": "sub-1", "is_done": False}]
+            return [{**chain["payload"], "id": "sub-1", "statut": "todo"}]
         return []
 
     fake = _install(monkeypatch, handler)
@@ -295,19 +295,19 @@ def test_update_scopes_write_by_id_and_task(monkeypatch):
     """
     def handler(chain: dict[str, Any]) -> Any:
         if chain["op"] == "update":
-            return [{"id": "sub-1", "task_id": TASK_ID, "is_done": True, "position": 0}]
+            return [{"id": "sub-1", "task_id": TASK_ID, "statut": "done", "position": 0}]
         return []
 
     fake = _install(monkeypatch, handler)
 
     result = subtasks_repo.update_subtask_record(
-        task_id=TASK_ID, subtask_id="sub-1", changes={"is_done": True}
+        task_id=TASK_ID, subtask_id="sub-1", changes={"statut": "done"}
     )
 
     update = next(c for c in fake.calls if c["op"] == "update")
     assert ("id", "sub-1") in update["filters"]
     assert ("task_id", TASK_ID) in update["filters"]
-    assert result is not None and result["is_done"] is True
+    assert result is not None and result["statut"] == "done"
 
 
 def test_update_with_empty_changes_reads_row_without_writing(monkeypatch):
@@ -316,7 +316,7 @@ def test_update_with_empty_changes_reads_row_without_writing(monkeypatch):
     """
     def handler(chain: dict[str, Any]) -> Any:
         if chain["op"] == "select":
-            return [{"id": "sub-1", "task_id": TASK_ID, "is_done": False, "position": 0}]
+            return [{"id": "sub-1", "task_id": TASK_ID, "statut": "todo", "position": 0}]
         return []
 
     fake = _install(monkeypatch, handler)
@@ -336,7 +336,7 @@ def test_update_returns_none_when_no_row_matches(monkeypatch):
     """
     _install(monkeypatch, lambda chain: [])
     result = subtasks_repo.update_subtask_record(
-        task_id=TASK_ID, subtask_id="nope", changes={"is_done": True}
+        task_id=TASK_ID, subtask_id="nope", changes={"statut": "done"}
     )
     assert result is None
 
@@ -381,7 +381,7 @@ def test_writes_degrade_to_none_or_false_when_db_offline(monkeypatch):
     assert subtasks_repo.create_subtask_record(task_id=TASK_ID, title="X") is None
     assert (
         subtasks_repo.update_subtask_record(
-            task_id=TASK_ID, subtask_id="s", changes={"is_done": True}
+            task_id=TASK_ID, subtask_id="s", changes={"statut": "done"}
         )
         is None
     )

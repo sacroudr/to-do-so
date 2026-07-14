@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/sidebar";
+import { ToastProvider } from "@/components/ui/toast";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 /**
@@ -21,11 +22,13 @@ export default async function AppLayout({
   // la hauteur (pied profil / deconnexion cale en bas) et SEUL le contenu defile
   // (`overflow-y-auto` sur <main>), sans double barre de defilement.
   return (
-    <div className="flex h-dvh">
-      <Sidebar user={user} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
+    <ToastProvider>
+      <div className="flex h-dvh">
+        <Sidebar user={user} />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

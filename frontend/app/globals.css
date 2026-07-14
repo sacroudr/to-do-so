@@ -52,6 +52,14 @@
    * 9 -> 6), ce token dedie porte l'usage hors-statut, par symetrie avec --danger.
    */
   --warning: #f59e0b; /* amber-500 */
+
+  /*
+   * Vert SEMANTIQUE « success » (confirmation d'action reussie : toasts de succes),
+   * distinct des couleurs de STATUT — par symetrie avec --danger et --warning. Emeraude
+   * plus soutenue que le statut « termine » (status-done, #10b981) pour un contraste d'icone
+   * suffisant sur fond clair. N'est jamais employe pour signaler un statut de tache.
+   */
+  --success: #059669; /* emerald-600 */
 }
 
 @theme inline {
@@ -68,6 +76,7 @@
   --color-ring: var(--ring);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
+  --color-success: var(--success);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -103,4 +112,29 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/*
+ * Entree des notifications (composants/ui/toast.tsx) : glissement + fondu discrets.
+ * Respecte prefers-reduced-motion (§7 animation / a11y).
+ */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
 }

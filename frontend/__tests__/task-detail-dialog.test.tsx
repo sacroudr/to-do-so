@@ -11,10 +11,21 @@
  * reste testable en Vitest (contrairement aux vues Kanban/Liste, Server Components -> E2E).
  */
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog";
+import { ToastProvider } from "@/components/ui/toast";
 import type { Task } from "@/lib/types/domain";
+
+/**
+ * Le detail embarque `TaskSubtasks` / `TaskAttachments`, qui consomment `useToast` (feedback
+ * global §8) : tout rendu se fait donc sous un `<ToastProvider>` (monte dans la coquille
+ * applicative reelle). `rerender` conserve automatiquement ce wrapper.
+ */
+function renderWithToast(ui: ReactElement) {
+  return render(ui, { wrapper: ToastProvider });
+}
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -24,7 +35,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api/subtask-actions", () => ({
   listSubtasksAction: vi.fn().mockResolvedValue([]),
   createSubtaskAction: vi.fn(),
-  toggleSubtaskAction: vi.fn(),
+  updateSubtaskStatusAction: vi.fn(),
   deleteSubtaskAction: vi.fn(),
   reorderSubtasksAction: vi.fn(),
 }));
@@ -76,7 +87,7 @@ describe("TaskDetailDialog — detail lecture seule (§4.2)", () => {
 
   it("should_display_all_main_task_fields", async () => {
     // GIVEN une tache complete ouverte dans le detail
-    render(
+    renderWithToast(
       <TaskDetailDialog open task={makeTask()} onClose={vi.fn()} onEdit={vi.fn()} />,
     );
     // On attend le reglage des enfants (listes vides) pour eviter les warnings act.
@@ -95,7 +106,7 @@ describe("TaskDetailDialog — detail lecture seule (§4.2)", () => {
 
   it("should_embed_the_subtasks_and_attachments_sections", async () => {
     // GIVEN le detail ouvert
-    render(
+    renderWithToast(
       <TaskDetailDialog open task={makeTask()} onClose={vi.fn()} onEdit={vi.fn()} />,
     );
     await screen.findByText("Aucune pièce jointe.");
@@ -109,7 +120,7 @@ describe("TaskDetailDialog — detail lecture seule (§4.2)", () => {
     // GIVEN le detail ouvert
     const onEdit = vi.fn();
     const task = makeTask();
-    render(<TaskDetailDialog open task={task} onClose={vi.fn()} onEdit={onEdit} />);
+    renderWithToast(<TaskDetailDialog open task={task} onClose={vi.fn()} onEdit={onEdit} />);
     await screen.findByText("Aucune pièce jointe.");
     // WHEN on clique « Modifier »
     fireEvent.click(screen.getByRole("button", { name: /Modifier/ }));
@@ -120,7 +131,7 @@ describe("TaskDetailDialog — detail lecture seule (§4.2)", () => {
   it("should_call_onClose_when_clicking_Fermer", async () => {
     // GIVEN le detail ouvert
     const onClose = vi.fn();
-    render(<TaskDetailDialog open task={makeTask()} onClose={onClose} onEdit={vi.fn()} />);
+    renderWithToast(<TaskDetailDialog open task={makeTask()} onClose={onClose} onEdit={vi.fn()} />);
     await screen.findByText("Aucune pièce jointe.");
     // WHEN on clique un controle « Fermer » (croix d'en-tete ou bouton de pied)
     fireEvent.click(screen.getAllByRole("button", { name: "Fermer" })[0]);

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 _OFFLINE_ERRORS = (httpx.TransportError, ConnectionError, OSError)
 
-_SUBTASK_COLUMNS = "id, task_id, title, is_done, position, created_at"
+_SUBTASK_COLUMNS = "id, task_id, title, statut, position, created_at"
 
 
 def _task_exists(client: Any, task_id: str) -> bool:
@@ -99,7 +99,7 @@ def create_subtask_record(*, task_id: str, title: str) -> dict[str, Any] | None:
 def update_subtask_record(
     *, task_id: str, subtask_id: str, changes: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """Coche/decoche et/ou renomme une sous-tache ; None si introuvable pour cette tache.
+    """Change le statut et/ou renomme une sous-tache ; None si introuvable pour cette tache.
 
     L'ecriture est scopee par `task_id` ET `id` : une sous-tache d'une autre tache
     (ou un id inexistant) ne renvoie aucune ligne -> None (404).

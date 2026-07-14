@@ -78,7 +78,9 @@ export interface Subtask {
   id: string;
   taskId: string;
   title: string;
-  isDone: boolean;
+  /** Statut de la sous-tache — MEMES 6 valeurs que la tache principale (remplace l'ancien
+   *  booleen isDone). Une sous-tache est « terminee » quand `statut === "done"`. */
+  statut: TaskStatus;
   /** Ordre d'affichage dans la checklist (0..n). */
   position: number;
   createdAt: string | null;

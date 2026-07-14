@@ -31,16 +31,30 @@ export default async function ProfilePage() {
           Impossible de charger votre profil. Vérifiez votre connexion et réessayez.
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-surface p-6">
-          <div className="flex items-center gap-4">
-            <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+          <div className="flex items-center gap-4 border-b border-border p-6">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
               {initials(profile.nom) || "?"}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-foreground">{profile.nom}</p>
+              <p className="truncate text-lg font-semibold tracking-tight text-foreground">
+                {profile.nom}
+              </p>
               <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
             </div>
           </div>
+
+          {/* Details en liste de definitions : hierarchie label -> valeur claire (lecture seule). */}
+          <dl className="divide-y divide-border">
+            <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+              <dt className="text-sm text-muted-foreground">Nom</dt>
+              <dd className="truncate text-sm font-medium text-foreground">{profile.nom}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+              <dt className="text-sm text-muted-foreground">Email</dt>
+              <dd className="truncate text-sm font-medium text-foreground">{profile.email}</dd>
+            </div>
+          </dl>
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { Button } from "@/components/ui/button";
 
 /**
  * Bouton d'ajout de projet (requirements.md §5) : ouvre le formulaire de creation.
@@ -14,14 +15,13 @@ export function NewProjectButton() {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        leftIcon={<Plus className="size-4" />}
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
       >
-        <Plus className="size-4" />
         Nouveau projet
-      </button>
+      </Button>
 
       <ProjectFormDialog mode="create" open={open} onClose={() => setOpen(false)} />
     </>
